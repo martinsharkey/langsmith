@@ -1,0 +1,15 @@
+{
+  "_comment": "Example customer policy. The customer, not Innovox, decides which origins and licences are acceptable.",
+  "allowed_origins": ["GB", "US", "CA", "AU", "NZ", "FR"],
+  "allowed_licences": ["Apache-2.0", "MIT"],
+  "allowed_classifications": ["OFFICIAL", "OFFICIAL-SENSITIVE"],
+  "weight_extensions": [".safetensors"],
+  "allowed_aux_extensions": [".json", ".txt", ".md", ".model", ".tiktoken", ".jinja"],
+  "forbidden_extensions": [".bin", ".pt", ".pth", ".pkl", ".pickle", ".ckpt", ".joblib", ".h5", ".npz"],
+  "signature_command": ["cosign", "verify-blob", "--key", "{public_key}", "--signature", "{signature}",
+                        "--insecure-ignore-tlog=true", "{manifest}"],
+  "evaluations": [
+    {"name": "garak", "metric": "pass_rate", "minimum": 0.95},
+    {"name": "inspect-task-suite", "metric": "accuracy", "minimum": 0.80}
+  ]
+}

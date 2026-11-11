@@ -1,0 +1,6 @@
+# Security-sensitive paths need the security owner's review.
+*                    @martinsharkey
+/policies/           @martinsharkey
+/model-intake/       @martinsharkey
+/versions.yaml       @martinsharkey
+/.github/            @martinsharkey

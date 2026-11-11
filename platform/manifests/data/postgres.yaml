@@ -1,0 +1,86 @@
+# PostgreSQL 18 under CloudNativePG (AD-50). One cluster, two databases: `langsmith` (operational) and `smithdb`
+# (SmithDB metastore, which LangChain requires to be a dedicated empty database).
+# Role passwords come from OpenBao through External Secrets (platform/manifests/secrets).
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: langsmith-pg
+  namespace: langsmith
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  primaryUpdateStrategy: unsupervised
+  certificates:                          # server certificate from the platform CA (cert-manager)
+    serverTLSSecret: langsmith-pg-server-tls
+    serverCASecret: langsmith-pg-server-tls
+  storage:
+    storageClass: ceph-block
+    size: 200Gi
+  walStorage:
+    storageClass: ceph-block
+    size: 50Gi
+  bootstrap:
+    initdb:
+      database: langsmith
+      owner: langsmith
+      secret:
+        name: pg-langsmith-credentials
+  managed:
+    roles:
+      - name: smithdb
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-smithdb-credentials
+  postgresql:
+    parameters:
+      ssl_min_protocol_version: TLSv1.2
+      log_connections: "on"
+      log_disconnections: "on"
+  monitoring:
+    enablePodMonitor: true
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: smithdb
+  namespace: langsmith
+spec:
+  cluster:
+    name: langsmith-pg
+  name: smithdb
+  owner: smithdb
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: langsmith-pg-daily
+  namespace: langsmith
+spec:
+  schedule: "0 0 2 * * *"
+  cluster:
+    name: langsmith-pg
+  method: volumeSnapshot
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: langsmith-pg-server
+  namespace: langsmith
+spec:
+  secretName: langsmith-pg-server-tls
+  usages: ["server auth"]
+  dnsNames:
+    - langsmith-pg-rw
+    - langsmith-pg-rw.langsmith.svc
+    - langsmith-pg-r
+    - langsmith-pg-r.langsmith.svc
+    - langsmith-pg-ro
+    - langsmith-pg-ro.langsmith.svc
+  issuerRef:
+    name: platform-ca-issuer
+    kind: ClusterIssuer

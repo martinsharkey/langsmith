@@ -1,0 +1,6 @@
+POST /runs/wait HTTP/1.1
+Host: agent-server.langsmith.svc:8000
+Content-Type: application/json
+Authorization: Bearer {AGENT_TOKEN}
+
+{"assistant_id": "agent", "input": {"messages": [{"role": "user", "content": "{PROMPT}"}]}}

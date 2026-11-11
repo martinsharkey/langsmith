@@ -1,0 +1,11 @@
+# Central log and audit store (CTL-13). The admin password comes from OpenBao through External Secrets.
+replicas: 3
+persistence:
+  storageClass: ceph-block
+  size: 200Gi
+extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin
+        key: password

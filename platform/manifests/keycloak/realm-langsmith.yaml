@@ -1,0 +1,49 @@
+# The `langsmith` realm. The client secret is injected from a Secret (placeholder), never written here.
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
+metadata:
+  name: langsmith-realm
+  namespace: keycloak
+spec:
+  keycloakCRName: keycloak
+  placeholders:
+    LANGSMITH_CLIENT_SECRET:
+      secret:
+        name: keycloak-langsmith-client
+        key: client_secret
+  realm:
+    realm: langsmith
+    enabled: true
+    sslRequired: all
+    registrationAllowed: false
+    bruteForceProtected: true
+    failureFactor: 5
+    passwordPolicy: "length(14) and notUsername and passwordHistory(5)"
+    otpPolicyType: totp
+    otpPolicyAlgorithm: HmacSHA256
+    requiredActions:
+      - alias: CONFIGURE_TOTP
+        name: Configure OTP
+        providerId: CONFIGURE_TOTP
+        enabled: true
+        defaultAction: true
+    accessTokenLifespan: 300
+    ssoSessionMaxLifespan: 36000
+    clients:
+      - clientId: langsmith
+        name: LangSmith
+        protocol: openid-connect
+        publicClient: false
+        secret: "${LANGSMITH_CLIENT_SECRET}"
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: false
+        implicitFlowEnabled: false
+        serviceAccountsEnabled: false
+        redirectUris:
+          - https://langsmith.site.example/*
+        webOrigins:
+          - https://langsmith.site.example
+        attributes:
+          pkce.code.challenge.method: S256
+        defaultClientScopes: ["openid", "profile", "email"]

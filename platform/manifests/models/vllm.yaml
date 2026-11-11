@@ -1,0 +1,142 @@
+# Sovereign model service (AD-24): the upstream vLLM image as shipped, serving weights that passed the intake gate
+# (model-intake). Weights are loaded read-only from a volume populated at carry-in; the container has no egress.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-weights
+  namespace: models
+spec:
+  accessModes: ["ReadOnlyMany"]
+  storageClassName: ceph-block
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-class-m
+  namespace: models
+  labels:
+    app: vllm
+    innovox.uk/model-class: m
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+      innovox.uk/model-class: m
+  template:
+    metadata:
+      annotations:
+        # Set to the decision ID that model-intake issued for the weights in /models/approved/class-m.
+        # Kyverno refuses the pod until a valid ID is present (require-model-intake-record, AD-46).
+        innovox.uk/intake-record: SET-AT-INTAKE
+      labels:
+        app: vllm
+        innovox.uk/model-class: m
+    spec:
+      nodeSelector:
+        innovox.uk/pool: gpu
+      tolerations:
+        - key: innovox.uk/gpu
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vllm
+          image: docker.io/vllm/vllm-openai:v0.33.0
+          args:
+            - --model=/models/approved/class-m
+            - --served-model-name=class-m
+            - --host=0.0.0.0
+            - --port=8000
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: api_key
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: VLLM_NO_USAGE_STATS
+              value: "1"
+            - name: DO_NOT_TRACK
+              value: "1"
+            - name: HOME
+              value: /tmp
+          ports:
+            - containerPort: 8000
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: weights
+              mountPath: /models
+              readOnly: true
+            - name: shm
+              mountPath: /dev/shm
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: weights
+          persistentVolumeClaim:
+            claimName: model-weights
+            readOnly: true
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-class-m
+  namespace: models
+spec:
+  selector:
+    app: vllm
+    innovox.uk/model-class: m
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# Only LangSmith (the LLM Gateway and Agent Server) may call the model service.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: vllm-callers
+  namespace: models
+spec:
+  selector:
+    matchLabels:
+      app: vllm
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["langsmith"]
+      to:
+        - operation:
+            paths: ["/v1/chat/completions", "/v1/completions", "/v1/embeddings", "/v1/models", "/health"]

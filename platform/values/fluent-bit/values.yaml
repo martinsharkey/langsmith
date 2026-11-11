@@ -1,0 +1,49 @@
+# Ships container logs, Kubernetes audit logs and Falco events to OpenSearch.
+config:
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        multiline.parser docker, cri
+        Tag kube.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+    [INPUT]
+        Name tail
+        Path /var/lib/rancher/rke2/server/logs/audit.log
+        Tag audit.*
+        Parser json
+  outputs: |
+    [OUTPUT]
+        Name opensearch
+        Match *
+        Host opensearch-cluster-master.observability.svc
+        Port 9200
+        HTTP_User admin
+        HTTP_Passwd ${OPENSEARCH_PASSWORD}
+        tls On
+        tls.verify On
+        tls.ca_file /fluent-bit/tls/ca.crt
+        Logstash_Format On
+        Replace_Dots On
+        Suppress_Type_Name On
+env:
+  - name: OPENSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin
+        key: password
+extraVolumes:
+  - name: opensearch-ca
+    secret:
+      secretName: opensearch-ca
+  - name: rke2-audit
+    hostPath:
+      path: /var/lib/rancher/rke2/server/logs
+extraVolumeMounts:
+  - name: opensearch-ca
+    mountPath: /fluent-bit/tls
+    readOnly: true
+  - name: rke2-audit
+    mountPath: /var/lib/rancher/rke2/server/logs
+    readOnly: true

@@ -1,0 +1,20 @@
+---
+# Bootstrap for mode B2 (disconnected enclave). Zarf rewrites the git URL to the enclave git server: kubectl apply -f platform/argocd/project.yaml -f platform/argocd/root-b2.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/martinsharkey/langsmith.git
+    targetRevision: main
+    path: platform/overlays/b2
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,32 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opensearch
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '4'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  sources:
+  - repoURL: https://opensearch-project.github.io/helm-charts
+    chart: opensearch
+    targetRevision: 3.9.0
+    helm:
+      releaseName: opensearch
+      valueFiles:
+      - $values/platform/values/opensearch/values.yaml
+  - repoURL: https://github.com/martinsharkey/langsmith.git
+    targetRevision: main
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

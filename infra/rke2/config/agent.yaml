@@ -1,0 +1,8 @@
+# /etc/rancher/rke2/config.yaml on worker nodes.
+server: https://CONTROL_PLANE_VIP:9345   # replaced at install time
+token-file: /etc/rancher/rke2/token
+profile: cis
+protect-kernel-defaults: true
+selinux: true
+kubelet-arg:
+  - tls-min-version=VersionTLS12

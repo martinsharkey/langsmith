@@ -1,0 +1,4 @@
+# Rook operator. The Ceph cluster, pools and object store are in platform/manifests/rook.
+enableDiscoveryDaemon: true
+monitoring:
+  enabled: true

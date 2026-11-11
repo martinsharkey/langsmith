@@ -1,0 +1,81 @@
+# LangSmith 0.17.51, configured only through documented chart values (AD-40).
+# Every secret is read from Kubernetes Secrets that External Secrets creates from OpenBao
+# (platform/manifests/secrets). Nothing secret is set here.
+# Images: pulled by their upstream names; RKE2's registries.yaml mirrors docker.io to the site Harbor.
+
+config:
+  existingSecretName: langsmith-config   # langsmith_license_key, api_key_salt, jwt_secret, oauth_client_secret,
+                                          # blob_storage_access_key, blob_storage_access_key_secret,
+                                          # insights_encryption_key, polly_encryption_key
+  authType: mixed
+  hostname: langsmith.site.example
+  userOrgCreationDisabled: true
+  personalOrgsDisabled: true
+  infoEndpointAuthRequired: true
+  oauth:
+    enabled: true
+    oauthClientId: langsmith
+    oauthIssuerUrl: https://keycloak.site.example/realms/langsmith
+  telemetry:                              # operational telemetry to LangChain off; licence billing beacon is
+    logs: false                           # separate and governed by the licence type (see values-b2.yaml)
+    metrics: false
+    traces: false
+  blobStorage:
+    enabled: true
+    engine: S3
+    bucketName: langsmith-blobs
+    apiURL: http://rook-ceph-rgw-platform.rook-ceph.svc
+    s3UsePathStyle: true
+  deployment:
+    enabled: true                          # Agent Server deployments through the LangSmith operator
+  customCa:                                # CloudNativePG cluster CA plus the site CA bundle
+    secretName: platform-ca-bundle
+    secretKey: ca-bundle.crt
+
+# ClickHouse is not used: SmithDB replaces it (DP-AI-001 v1.4; LangSmith ends ClickHouse support in v0.19).
+# A SmithDB-only install is to be confirmed with LangChain (I-11, I-12).
+clickhouse:
+  enabled: false
+
+smithdb:
+  enabled: true
+  resourceTier: small
+  cache:
+    storageClassName: local-nvme
+  langsmith:
+    ingestion:
+      enabled: true
+    query:
+      enabled: true
+  config:
+    existingSecretName: smithdb-config
+    metastore:
+      hostSecretKey: host
+      databaseSecretKey: dbname
+      usernameSecretKey: user
+      passwordSecretKey: password
+      port: "5432"
+      useSsl: true
+    objectStore:
+      type: s3
+      bucket: smithdb
+      s3:
+        endpoint: http://rook-ceph-rgw-platform.rook-ceph.svc
+        accessKeyIdSecretKey: AWS_ACCESS_KEY_ID
+        secretAccessKeySecretKey: AWS_SECRET_ACCESS_KEY
+
+postgres:
+  external:
+    enabled: true
+    existingSecretName: langsmith-postgres    # key connection_url, from CloudNativePG's app secret
+    customTls: true
+
+redis:
+  external:
+    enabled: true
+    existingSecretName: langsmith-valkey      # key connection_url (Valkey, I-15)
+
+istioGateway:
+  enabled: true
+  name: platform-gateway
+  namespace: istio-ingress

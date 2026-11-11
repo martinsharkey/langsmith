@@ -1,0 +1,20 @@
+# S3 users. Rook writes each user's keys to a Secret in rook-ceph; the install runbook copies them into OpenBao,
+# from where External Secrets delivers them to the consuming namespace.
+---
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: langsmith
+  namespace: rook-ceph
+spec:
+  store: platform
+  displayName: LangSmith blobs and SmithDB
+---
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: evidence
+  namespace: rook-ceph
+spec:
+  store: platform
+  displayName: Evidence and audit (Object Lock)

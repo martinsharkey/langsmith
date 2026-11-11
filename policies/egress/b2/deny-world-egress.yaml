@@ -1,0 +1,14 @@
+# Mode B2 (disconnected enclave). Nothing in the cluster may reach anything outside it (CTL-08). Deny rules take
+# precedence over any allow rule, so no later policy can open a route out by mistake.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-world-egress
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:         # deny world only; do not switch every pod to default-deny
+    egress: false
+    ingress: false
+  egressDeny:
+    - toEntities:
+        - world

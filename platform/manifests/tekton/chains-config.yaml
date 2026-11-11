@@ -1,0 +1,18 @@
+# Tekton Chains (Apache-2.0): signs every TaskRun result and image and records SLSA provenance (CTL-02).
+# Install Tekton Pipelines v1.18.0 and Chains v0.30.0 from their release manifests (Makefile target `tekton`),
+# then apply this. The signing key is a cosign key held in OpenBao and synced to Secret signing-secrets.
+# The transparency log is off: the enclave has no Rekor; verification uses the public key (AD-47).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chains-config
+  namespace: tekton-chains
+data:
+  artifacts.taskrun.format: in-toto
+  artifacts.taskrun.storage: oci
+  artifacts.oci.storage: oci
+  artifacts.pipelinerun.format: in-toto
+  artifacts.pipelinerun.storage: oci
+  transparency.enabled: "false"
+  signers.x509.fulcio.enabled: "false"

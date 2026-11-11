@@ -1,0 +1,6 @@
+crds:
+  enabled: true
+replicaCount: 2
+prometheus:
+  servicemonitor:
+    enabled: true

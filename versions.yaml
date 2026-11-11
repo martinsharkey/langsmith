@@ -1,0 +1,36 @@
+# Single source of pinned versions. Checked against upstream tags on 2026-11-11.
+# Renovate (renovate.json) proposes upgrades as pull requests; every upgrade passes gates PR, E1 and E2.
+kubernetes:
+  rke2: v1.37.2+rke2r1
+gitops:
+  argo-cd-chart: 10.18.0            # https://argoproj.github.io/argo-helm
+platform:
+  cert-manager-chart: v1.21.3       # https://charts.jetstack.io
+  external-secrets-chart: 2.15.0    # https://charts.external-secrets.io
+  openbao-chart: 0.30.7             # https://openbao.github.io/openbao-helm  (OpenBao v2.7.2)
+  rook-ceph-chart: v1.21.2          # https://charts.rook.io/release
+  cloudnative-pg-chart: 0.29.1      # https://cloudnative-pg.github.io/charts
+  postgresql-image: ghcr.io/cloudnative-pg/postgresql:18
+  valkey-image: docker.io/valkey/valkey:9.1.3
+  harbor-chart: 1.19.4              # https://helm.goharbor.io
+  keycloak-operator: 26.8.2         # github.com/keycloak/keycloak-k8s-resources
+  kyverno-chart: 3.9.2              # https://kyverno.github.io/kyverno  (Kyverno v1.20.0)
+  istio-charts: 1.32.0              # https://istio-release.storage.googleapis.com/charts
+  opensearch-chart: 3.9.0           # https://opensearch-project.github.io/helm-charts
+  kube-prometheus-stack-chart: 93.2.2  # https://prometheus-community.github.io/helm-charts
+  falco-chart: 9.2.2                # https://falcosecurity.github.io/charts
+  fluent-bit-chart: 0.58.3          # https://fluent.github.io/helm-charts
+  opensearch-dashboards-chart: 3.9.0
+models:
+  vllm-image: docker.io/vllm/vllm-openai:v0.33.0
+langsmith:
+  langsmith-chart: 0.17.51          # https://langchain-ai.github.io/helm  (app 0.17.74)
+supply-chain:
+  zarf: v0.89.0
+  cosign: v3.1.4
+  trivy: v0.76.2
+  tekton-pipelines: v1.18.0
+  tekton-chains: v0.30.0
+  dependency-track: 5.2.1
+  opentofu: v1.13.9
+  nutanix-provider: 2.5.0

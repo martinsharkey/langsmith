@@ -1,0 +1,36 @@
+# CTL-01 / AD-47. Images built by Innovox pipelines must carry a cosign signature from the platform signing key.
+# The public key is held in Secret kyverno/cosign-public-key (key cosign.pub). Offline: no transparency log.
+# LangChain images are signed keyless with Sigstore; their verification rule is added once LangChain confirms the
+# signing identity (docs/status.md, D-06).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-innovox-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Innovox image signatures
+    policies.kyverno.io/category: Supply chain
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: cosign-key
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      verifyImages:
+        - imageReferences:
+            - "harbor.site.example/innovox/*"
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keys:
+                    secret:
+                      name: cosign-public-key
+                      namespace: kyverno
+                    rekor:
+                      ignoreTlog: true
+                    ctlog:
+                      ignoreSCT: true

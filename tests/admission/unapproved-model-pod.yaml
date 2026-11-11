@@ -1,0 +1,12 @@
+# Gate E2 / CTL-04. Must be REFUSED: a model pod without an intake decision ID.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: admission-test-unapproved-model
+  namespace: models
+  annotations:
+    innovox.uk/intake-record: SET-AT-INTAKE
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0

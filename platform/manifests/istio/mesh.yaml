@@ -1,0 +1,77 @@
+# Mutual TLS everywhere in the mesh (CTL-10), and the platform ingress gateway.
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: platform-ingress
+  namespace: istio-ingress
+spec:
+  secretName: platform-ingress-tls
+  dnsNames:
+    - langsmith.site.example
+    - harbor.site.example
+    - keycloak.site.example
+  issuerRef:
+    name: platform-ca-issuer
+    kind: ClusterIssuer
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: platform-gateway
+  namespace: istio-ingress
+spec:
+  selector:
+    istio: istio-ingress
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: platform-ingress-tls
+        minProtocolVersion: TLSV1_2
+      hosts:
+        - langsmith.site.example
+        - harbor.site.example
+        - keycloak.site.example
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: harbor
+  namespace: harbor
+spec:
+  hosts: ["harbor.site.example"]
+  gateways: ["istio-ingress/platform-gateway"]
+  http:
+    - route:
+        - destination:
+            host: harbor.harbor.svc.cluster.local
+            port:
+              number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  hosts: ["keycloak.site.example"]
+  gateways: ["istio-ingress/platform-gateway"]
+  http:
+    - route:
+        - destination:
+            host: keycloak-service.keycloak.svc.cluster.local
+            port:
+              number: 8443
