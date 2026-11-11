@@ -1,0 +1,10 @@
+{
+  "openai": {
+    "OpenAICompatible": {
+      "uri": "http://vllm-class-m.models.svc:8000/v1",
+      "model": "class-m",
+      "api_key": "env:VLLM_API_KEY",
+      "suppressed_params": ["n"]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Mode B2, disconnected enclave. Requires an offline licence from LangChain (D-06, R-21).
+# Fleet and Engine are not enabled: Fleet integrations call external OAuth endpoints (I-13) and Engine cannot run
+# fully air-gapped when it uses LangSmith Intelligence.
+config:
+  hostname: langsmith.enclave.example
+  oauth:
+    oauthIssuerUrl: https://keycloak.enclave.example/realms/langsmith
+insights:
+  enabled: false        # needs a model provider; enable once its offline use is confirmed (D-06)
+polly:
+  enabled: false        # LangSmith Chat; same condition

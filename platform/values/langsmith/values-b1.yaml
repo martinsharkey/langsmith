@@ -1,0 +1,4 @@
+# Mode B1, connected OFFICIAL-SENSITIVE. Online licence; the billing beacon to beacon.langchain.com is required
+# by LangChain for online licences and is the only LangSmith egress besides the LLM Gateway's approved routes.
+config:
+  hostname: langsmith.site.example

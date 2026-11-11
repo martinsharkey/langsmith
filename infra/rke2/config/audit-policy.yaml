@@ -1,0 +1,25 @@
+# Kubernetes API audit policy (CTL-13). Logs metadata for everything, request bodies for changes to
+# security-relevant objects, and never logs secret contents.
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: ["RequestReceived"]
+rules:
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets", "configmaps", "serviceaccounts/token"]
+  - level: RequestResponse
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "rbac.authorization.k8s.io"
+      - group: "admissionregistration.k8s.io"
+      - group: "kyverno.io"
+      - group: "cilium.io"
+      - group: "security.istio.io"
+      - group: "networking.k8s.io"
+  - level: None
+    users: ["system:kube-proxy"]
+    verbs: ["watch"]
+  - level: None
+    nonResourceURLs: ["/healthz*", "/readyz*", "/livez*", "/version"]
+  - level: Metadata

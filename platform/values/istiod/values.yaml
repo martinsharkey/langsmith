@@ -1,0 +1,8 @@
+# Mesh-wide settings. Egress to hosts outside the mesh registry is refused (CTL-08); the LLM Gateway's approved
+# endpoints are declared as ServiceEntries in mode B1 only.
+meshConfig:
+  accessLogFile: /dev/stdout
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+pilot:
+  autoscaleMin: 2

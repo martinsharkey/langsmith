@@ -1,0 +1,129 @@
+# Control catalogue, machine-readable. Source: DP-AI-001-C v0.2 chapter 7.
+# mechanism: native = vendor or open-source feature used as documented; innovox = policy, pipeline step or code owned here.
+controls:
+  - id: CTL-01
+    name: Signed images only
+    answers: [SSDF PS.2, SSDF PW.4, CAF A4.b, OWASP Agentic ASI04, NCSC CSP 8]
+    mechanism: native
+    implemented_by: [policies/kyverno/policies/verify-innovox-signatures.yaml, policies/kyverno/policies/restrict-image-sources.yaml, policies/kyverno/policies/disallow-latest-tag.yaml]
+    gate: admission
+    evidence: Kyverno policy reports
+  - id: CTL-02
+    name: SBOM and build provenance
+    answers: [SSDF PS.3, SSDF PO.3, CAF A4.b, NCSC CSP 7]
+    mechanism: native
+    implemented_by: [.github/workflows/ci.yml, platform/manifests/tekton/chains-config.yaml]
+    gate: PR, E1
+    evidence: CycloneDX SBOMs, SLSA provenance in the evidence bucket
+  - id: CTL-03
+    name: Vulnerability management
+    answers: [SSDF RV.1, SSDF RV.2, NCSC CSP 5]
+    mechanism: native
+    implemented_by: [platform/values/harbor/values.yaml, .github/workflows/ci.yml]
+    gate: E1
+    evidence: Trivy reports, exception register
+  - id: CTL-04
+    name: Model provenance and inventory
+    answers: [SP 800-218A, AI Cyber Security Code of Practice, OWASP Agentic ASI04, OWASP LLM supply chain]
+    mechanism: innovox
+    implemented_by: [model-intake/, policies/kyverno/policies/require-model-intake-record.yaml]
+    gate: intake
+    evidence: ML-BOM, signature record, decision record
+  - id: CTL-05
+    name: Model evaluation
+    answers: [JSP 936, AI Cyber Security Code of Practice, OWASP LLM misinformation]
+    mechanism: innovox
+    implemented_by: [model-intake/, redteam/inspect/]
+    gate: intake, E2
+    evidence: evaluation reports
+  - id: CTL-06
+    name: Prompt injection and goal hijack
+    answers: [OWASP LLM prompt injection, OWASP Agentic ASI01]
+    mechanism: innovox
+    implemented_by: [redteam/garak/, redteam/pyrit/]
+    gate: E2
+    evidence: garak and PyRIT reports
+  - id: CTL-07
+    name: Least privilege for agents and tools
+    answers: [OWASP Agentic ASI02, OWASP Agentic ASI03, OWASP LLM excessive agency, NCSC CSP 9, NCSC CSP 10]
+    mechanism: innovox
+    implemented_by: [platform/manifests/keycloak/, platform/values/langsmith/values.yaml]
+    gate: E1
+    evidence: auth configuration, negative tests
+  - id: CTL-08
+    name: Egress control
+    answers: [NCSC CSP 11]
+    mechanism: native
+    implemented_by: [policies/egress/, tests/egress/]
+    gate: E1, E2
+    evidence: egress test job logs, Hubble flow logs
+  - id: CTL-09
+    name: Separation
+    answers: [NCSC CSP 3]
+    mechanism: native
+    implemented_by: [platform/manifests/base/namespaces.yaml, policies/egress/common/default-deny.yaml]
+    gate: E1
+    evidence: configuration export
+  - id: CTL-10
+    name: Data in transit
+    answers: [NCSC CSP 1]
+    mechanism: native
+    implemented_by: [platform/manifests/istio/mesh.yaml, infra/rke2/config/server.yaml]
+    gate: E1
+    evidence: configuration scan
+  - id: CTL-11
+    name: Data at rest and keys
+    answers: [NCSC CSP 2]
+    mechanism: native
+    implemented_by: [infra/rke2/config/server.yaml, platform/values/openbao/values.yaml, platform/manifests/rook/cluster.yaml]
+    gate: E1
+    evidence: key inventory, rotation records
+  - id: CTL-12
+    name: Administration
+    answers: [NCSC CSP 12, CAF B2]
+    mechanism: native
+    implemented_by: [infra/opentofu/nutanix/, docs/runbooks/install-b1.md]
+    gate: P1
+    evidence: access logs, break-glass test
+  - id: CTL-13
+    name: Audit and monitoring
+    answers: [NCSC CSP 13, CAF C1]
+    mechanism: native
+    implemented_by: [infra/rke2/config/audit-policy.yaml, platform/values/opensearch/values.yaml, platform/values/falco/values.yaml]
+    gate: P1
+    evidence: audit store, alert tests
+  - id: CTL-14
+    name: Human oversight
+    answers: [JSP 936, OWASP Agentic ASI09]
+    mechanism: native
+    implemented_by: [agent code (Deep Agents interrupt_on), LangSmith annotation queues]
+    gate: E2
+    evidence: approval and review logs
+  - id: CTL-15
+    name: Memory and context poisoning
+    answers: [OWASP Agentic ASI06, OWASP LLM data and model poisoning]
+    mechanism: native
+    implemented_by: [LangSmith Context Hub versioning, per-agent stores]
+    gate: E2
+    evidence: red-team results, content version history
+  - id: CTL-16
+    name: Cascading failure and rogue agents
+    answers: [OWASP Agentic ASI08, OWASP Agentic ASI10]
+    mechanism: native
+    implemented_by: [platform/values/langsmith/values.yaml]
+    gate: E2
+    evidence: failure-injection test results
+  - id: CTL-17
+    name: Independent penetration test
+    answers: [NCSC CHECK, MOD Secure by Design]
+    mechanism: innovox
+    implemented_by: [docs/sdlc.md]
+    gate: P1
+    evidence: CHECK report, remediation, retest
+  - id: CTL-18
+    name: Supplier cyber assurance
+    answers: [Def Stan 05-138 Issue 4, Defence Cyber Certification, Cyber Essentials Plus]
+    mechanism: innovox
+    implemented_by: []
+    gate: before contract
+    evidence: certificates

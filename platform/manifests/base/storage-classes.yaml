@@ -1,0 +1,10 @@
+# local-nvme: node-local SSD for the SmithDB cache (LangChain: local SSD or network disks of 7000 IOPS and
+# 1000 MiB/s). Provisioned by local-path-provisioner on the NVMe mount of storage-tier nodes.
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-nvme
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete

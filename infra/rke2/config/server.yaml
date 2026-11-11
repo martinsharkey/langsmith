@@ -1,0 +1,26 @@
+# /etc/rancher/rke2/config.yaml on control-plane nodes. RKE2 v1.37.2+rke2r1.
+# Secrets (the join token) are never stored here: token-file is written at install time from OpenBao or the
+# operator's sealed hand-over, see docs/runbooks/install-b1.md.
+token-file: /etc/rancher/rke2/token
+write-kubeconfig-mode: "0600"
+profile: cis                    # CIS Kubernetes Benchmark profile: restricted PSA, kernel defaults, etcd user
+protect-kernel-defaults: true
+selinux: true
+secrets-encryption: true        # etcd encryption at rest (CTL-11)
+cni: cilium
+disable-kube-proxy: true        # Cilium replaces kube-proxy
+disable:
+  - rke2-ingress-nginx          # ingress is the Istio gateway
+audit-policy-file: /etc/rancher/rke2/audit-policy.yaml
+kube-apiserver-arg:
+  - audit-log-path=/var/lib/rancher/rke2/server/logs/audit.log
+  - audit-log-maxage=30
+  - audit-log-maxbackup=10
+  - audit-log-maxsize=100
+  - tls-min-version=VersionTLS12
+kubelet-arg:
+  - tls-min-version=VersionTLS12
+etcd-snapshot-schedule-cron: "0 */6 * * *"
+etcd-snapshot-retention: 28
+# Air gap (B2): images come from the enclave registry; see registries.yaml.example.
+system-default-registry: ""     # set per site, e.g. harbor.enclave.example

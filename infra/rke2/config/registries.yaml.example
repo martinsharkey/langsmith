@@ -1,0 +1,13 @@
+# /etc/rancher/rke2/registries.yaml. Copy and set the enclave or site registry. Credentials come from the
+# install-time secret hand-over, never from this repository.
+mirrors:
+  docker.io:
+    endpoint: ["https://harbor.site.example"]
+  ghcr.io:
+    endpoint: ["https://harbor.site.example"]
+  quay.io:
+    endpoint: ["https://harbor.site.example"]
+configs:
+  harbor.site.example:
+    tls:
+      ca_file: /etc/rancher/rke2/site-ca.pem

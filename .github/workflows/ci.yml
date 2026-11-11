@@ -1,0 +1,115 @@
+# Gate PR (docs/sdlc.md). Every job must pass before a pull request can merge.
+name: gate-pr
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  KUBECONFORM_VERSION: v0.7.0
+  KYVERNO_CLI_VERSION: v1.19.2
+  GITLEAKS_VERSION: 8.30.1
+  TRIVY_VERSION: 0.76.2
+  HELM_VERSION: v3.22.1
+  TOFU_VERSION: 1.13.9
+  K8S_VERSION: 1.37.2
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install yamllint==1.38.0
+      - run: yamllint -s .
+      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks (history and working tree)
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz gitleaks
+          ./gitleaks git . --config .gitleaks.toml --redact --no-banner
+          ./gitleaks dir . --config .gitleaks.toml --redact --no-banner
+
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
+          find platform/manifests platform/apps platform/argocd platform/overlays policies/egress policies/kyverno/policies tests/egress infra/rke2/manifests -name '*.yaml' \
+            ! -name kustomization.yaml -print0 | xargs -0 ./kubeconform -strict -summary \
+            -kubernetes-version "$K8S_VERSION" -skip HelmChartConfig \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+      - name: kustomize overlays build
+        run: |
+          for m in b1 b2; do kubectl kustomize "platform/overlays/$m" > "/tmp/overlay-$m.yaml"; done
+          for d in platform/manifests/* policies/egress/b1 policies/egress/b2 policies/kyverno/policies; do kubectl kustomize "$d" > /dev/null; done
+
+  policies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: kyverno policy tests
+        run: |
+          curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
+          ./kyverno test policies/kyverno/tests
+
+  helm-render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: render LangSmith for both modes
+        run: |
+          helm repo add langchain https://langchain-ai.github.io/helm
+          for m in b1 b2; do
+            helm template langsmith langchain/langsmith --version 0.17.51 --namespace langsmith \
+              -f platform/values/langsmith/values.yaml -f "platform/values/langsmith/values-$m.yaml" > "langsmith-$m.yaml"
+            echo "mode $m: $(grep -c '^kind:' "langsmith-$m.yaml") objects"
+            if grep -A4 '^kind: StatefulSet' "langsmith-$m.yaml" | grep -q 'name: .*clickhouse'; then
+              echo "ClickHouse StatefulSet rendered but must be disabled"; exit 1
+            fi
+          done
+
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4  # v2.0.2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+      - name: OpenTofu fmt and validate
+        working-directory: infra/opentofu/nutanix
+        run: |
+          tofu fmt -check -recursive
+          tofu init -backend=false -input=false
+          tofu validate
+      - name: Trivy misconfiguration scan
+        run: |
+          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar xz trivy
+          ./trivy config --config trivy.yaml --exit-code 1 .
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: make -C model-intake test

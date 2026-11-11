@@ -1,0 +1,26 @@
+# Harbor is the only registry the clusters pull from (CTL-01). Exposed through the Istio gateway.
+expose:
+  type: clusterIP
+  tls:
+    enabled: false        # TLS terminates at the Istio gateway; mesh traffic is mutual TLS
+externalURL: https://harbor.site.example
+existingSecretAdminPassword: harbor-admin
+existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+persistence:
+  persistentVolumeClaim:
+    registry:
+      storageClass: ceph-block
+      size: 500Gi
+    jobservice:
+      jobLog:
+        storageClass: ceph-block
+    database:
+      storageClass: ceph-block
+    redis:
+      storageClass: ceph-block
+    trivy:
+      storageClass: ceph-block
+trivy:
+  enabled: true
+  # B2: the vulnerability database is carried in; see airgap/zarf/README.md
+  offlineScan: false

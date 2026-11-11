@@ -1,0 +1,19 @@
+#cloud-config
+hostname: ${hostname}
+users:
+  - name: breakglass
+    groups: [wheel]
+    sudo: "ALL=(ALL) ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_authorized_key}
+ssh_pwauth: false
+disable_root: true
+write_files:
+  - path: /etc/innovox/node.env
+    permissions: "0644"
+    content: |
+      NODE_POOL=${pool}
+      RKE2_ROLE=${role}
+runcmd:
+  - [sh, -c, "echo 'node prepared for RKE2 ${role} (${pool})' > /etc/motd"]

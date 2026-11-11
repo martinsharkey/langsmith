@@ -1,0 +1,61 @@
+# Creates the platform buckets. The evidence bucket has Object Lock in COMPLIANCE mode (AD-48): objects cannot be
+# deleted or overwritten by anyone, including administrators, until the retention period ends.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-buckets
+  namespace: rook-ceph
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: s3
+          image: docker.io/amazon/aws-cli:2.40.1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: HOME
+              value: /tmp
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: EP
+              value: http://rook-ceph-rgw-platform.rook-ceph.svc
+            - name: LS_KEY
+              valueFrom: {secretKeyRef: {name: rook-ceph-object-user-platform-langsmith, key: AccessKey}}
+            - name: LS_SECRET
+              valueFrom: {secretKeyRef: {name: rook-ceph-object-user-platform-langsmith, key: SecretKey}}
+            - name: EV_KEY
+              valueFrom: {secretKeyRef: {name: rook-ceph-object-user-platform-evidence, key: AccessKey}}
+            - name: EV_SECRET
+              valueFrom: {secretKeyRef: {name: rook-ceph-object-user-platform-evidence, key: SecretKey}}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              mk() { AWS_ACCESS_KEY_ID="$1" AWS_SECRET_ACCESS_KEY="$2" aws --endpoint-url "$EP" s3api head-bucket --bucket "$3" 2>/dev/null \
+                || AWS_ACCESS_KEY_ID="$1" AWS_SECRET_ACCESS_KEY="$2" aws --endpoint-url "$EP" s3api create-bucket --bucket "$3" $4; }
+              mk "$LS_KEY" "$LS_SECRET" langsmith-blobs ""
+              mk "$LS_KEY" "$LS_SECRET" smithdb ""
+              # Retention 2557 days (7 years): set to the customer's records policy.
+              mk "$EV_KEY" "$EV_SECRET" evidence "--object-lock-enabled-for-bucket"
+              AWS_ACCESS_KEY_ID="$EV_KEY" AWS_SECRET_ACCESS_KEY="$EV_SECRET" aws --endpoint-url "$EP" s3api put-object-lock-configuration \
+                --bucket evidence --object-lock-configuration \
+                '{"ObjectLockEnabled":"Enabled","Rule":{"DefaultRetention":{"Mode":"COMPLIANCE","Days":2557}}}'

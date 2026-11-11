@@ -1,0 +1,5 @@
+# The only ingress. Sites without a load balancer use NodePort behind the data centre's own load balancer.
+service:
+  type: NodePort
+autoscaling:
+  minReplicas: 2

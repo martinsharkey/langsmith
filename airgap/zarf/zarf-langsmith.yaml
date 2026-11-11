@@ -1,0 +1,20 @@
+# Separate package so the LangSmith release can follow LangChain's own upgrade cadence (AD-40).
+kind: ZarfPackageConfig
+metadata:
+  name: dp-ai-001-c-langsmith
+  version: 0.17.51
+  description: LangSmith chart and images. Requires an offline licence from LangChain
+    (D-06).
+components:
+- name: langsmith
+  required: true
+  charts:
+  - name: langsmith
+    version: 0.17.51
+    url: https://langchain-ai.github.io/helm
+    namespace: langsmith
+  actions:
+    onCreate:
+      before:
+      - cmd: 'echo ''Images: LangChain mirror_langsmith_images.sh lists every image
+          for this chart version; append them with make zarf-images.'''

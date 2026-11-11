@@ -1,0 +1,53 @@
+# CTL-01. Pods may only use images from approved sources. Nodes pull every upstream name through the site Harbor
+# mirror (infra/rke2/config/registries.yaml.example), so this list is the supply-chain allowlist, not a network path.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-sources
+  annotations:
+    policies.kyverno.io/title: Restrict image sources
+    policies.kyverno.io/category: Supply chain
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: approved-sources
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Image source is not on the platform allowlist (policies/kyverno/policies/restrict-image-sources.yaml)."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: AnyNotIn
+                    value:
+                      - "docker.io/langchain/*"
+                      - "docker.io/vllm/*"
+                      - "docker.io/valkey/*"
+                      - "docker.io/amazon/aws-cli:*"
+                      - "ghcr.io/cloudnative-pg/*"
+                      - "quay.io/ceph/*"
+                      - "quay.io/cephcsi/*"
+                      - "quay.io/keycloak/*"
+                      - "quay.io/jetstack/*"
+                      - "quay.io/argoproj/*"
+                      - "quay.io/prometheus/*"
+                      - "quay.io/prometheus-operator/*"
+                      - "quay.io/openbao/*"
+                      - "ghcr.io/external-secrets/*"
+                      - "reg.kyverno.io/kyverno/*"
+                      - "docker.io/rook/*"
+                      - "docker.io/goharbor/*"
+                      - "docker.io/istio/*"
+                      - "docker.io/opensearchproject/*"
+                      - "docker.io/falcosecurity/*"
+                      - "cr.fluentbit.io/fluent/*"
+                      - "docker.io/grafana/*"
+                      - "registry.k8s.io/*"
+                      - "docker.io/rancher/*"
+                      - "harbor.site.example/innovox/*"

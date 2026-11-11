@@ -1,0 +1,5 @@
+# Additional settings for GPU workers that run vLLM. Merged with agent.yaml.
+node-label:
+  - innovox.uk/pool=gpu
+node-taint:
+  - innovox.uk/gpu=true:NoSchedule

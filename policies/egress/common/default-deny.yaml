@@ -1,0 +1,76 @@
+# CTL-08 / CTL-09. Default deny for the namespaces that carry user, agent and model traffic, with the minimum
+# in-cluster paths they need. Applied in both modes; mode B1 adds the approved external routes (../b1).
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: langsmith-baseline
+  namespace: langsmith
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: langsmith
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: istio-ingress
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: langsmith
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: istio-system
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: models
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: rook-ceph
+            app: rook-ceph-rgw
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: keycloak
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: istio-ingress
+    - toEntities:
+        - kube-apiserver          # the LangSmith operator manages Agent Server deployments
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: models-baseline
+  namespace: models
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: langsmith
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: istio-system

@@ -1,0 +1,36 @@
+# Mode B1 (connected, OFFICIAL-SENSITIVE). The only external destinations: LangChain's licence beacon (required for
+# an online licence) and the UK model endpoints the customer has approved (AD-45). Add each approved endpoint to
+# BOTH lists below: the Cilium FQDN rule and the Istio ServiceEntry (the mesh refuses unregistered hosts).
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: langsmith-approved-egress
+  namespace: langsmith
+spec:
+  endpointSelector: {}
+  egress:
+    - toFQDNs:
+        - matchName: beacon.langchain.com
+        # Approved UK model endpoints, for example Vertex AI's London regional endpoint:
+        # - matchName: europe-west2-aiplatform.googleapis.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: approved-external
+  namespace: langsmith
+spec:
+  hosts:
+    - beacon.langchain.com
+    # - europe-west2-aiplatform.googleapis.com
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 443
+      name: tls
+      protocol: TLS

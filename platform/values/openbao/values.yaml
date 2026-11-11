@@ -1,0 +1,17 @@
+# OpenBao (MPL-2.0) holds every platform secret (CTL-11). Unseal keys are split between named custodians at
+# initialisation and never stored in Kubernetes or this repository.
+injector:
+  enabled: false
+server:
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+  dataStorage:
+    storageClass: ceph-block
+  auditStorage:
+    enabled: true
+    storageClass: ceph-block
+ui:
+  enabled: true

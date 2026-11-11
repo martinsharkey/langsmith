@@ -1,0 +1,12 @@
+# Gate E2 / CTL-01. Must be REFUSED at admission. Expected: kubectl apply exits non-zero with a Kyverno message
+# from restrict-image-sources (unknown source) and disallow-latest-tag.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: admission-test-unsigned
+  namespace: langsmith
+spec:
+  containers:
+    - name: probe
+      image: docker.io/library/busybox:latest
+      command: ["sleep", "10"]

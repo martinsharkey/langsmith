@@ -1,0 +1,18 @@
+# Which test covers which OWASP item. Names, not numbers, for the LLM Top 10 2026 (I-14).
+owasp_llm_2026:
+  prompt injection: [garak:promptinject, garak:latentinjection, pyrit:indirect-injection]
+  sensitive information disclosure: [garak:leakreplay, pyrit:reveal-instructions]
+  excessive agency: [pyrit:tool-misuse]
+  supply chain: [model-intake:check]
+  data and model poisoning: [model-intake:check, pyrit:memory-poisoning]
+  improper output handling: [inspect:customer-tasks]
+  misinformation: [inspect:customer-tasks]
+owasp_agentic_2026:
+  ASI01 agent goal hijack: [pyrit:indirect-injection]
+  ASI02 tool misuse: [pyrit:tool-misuse]
+  ASI03 identity and privilege abuse: [tests/admission, keycloak negative tests]
+  ASI04 agentic supply chain: [model-intake:check, policies/kyverno]
+  ASI06 memory and context poisoning: [pyrit:memory-poisoning]
+  ASI08 cascading failures: [failure-injection tests at E2]
+  ASI09 human-agent trust exploitation: [approval interrupt tests at E2]
+  ASI10 rogue agents: [revoke-assistant test at E2]

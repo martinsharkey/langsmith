@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars per site. Do not commit real values.
+prism_central_endpoint = "prism-central.site.example"
+cluster_name           = "site-cluster-1"
+subnet_name            = "dp-ai-001-nodes"
+node_image_name        = "hardened-linux-rke2"
+ssh_authorized_key     = "ssh-ed25519 AAAA... breakglass@jumphost"
+mode                   = "b1"
