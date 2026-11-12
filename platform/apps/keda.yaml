@@ -1,0 +1,34 @@
+---
+# KEDA (Apache-2.0): required by LangChain for self-hosted LangSmith Deployment and preferred for queue scaling (AD-54).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  sources:
+  - repoURL: https://kedacore.github.io/charts
+    chart: keda
+    targetRevision: 2.21.0
+    helm:
+      releaseName: keda
+      valueFiles:
+      - $values/platform/values/keda/values.yaml
+  - repoURL: https://github.com/martinsharkey/langsmith.git
+    targetRevision: main
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keda
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

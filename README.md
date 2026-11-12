@@ -1,7 +1,9 @@
 # Innovox LangSmith Defence Platform
 
-Deployable reference implementation of **DP-AI-001-C: Defence Profile and Assurance Framework**: a self-hosted
-[LangSmith](https://docs.langchain.com/langsmith) platform for UK defence and air-gapped sites. Everything in it is
+Deployable reference implementation of the Innovox **sovereign agentic platform** (DP-AI-001 Solution Architecture
+v2.0, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
+platform where business users hand complex tasks to deep agents through a workbench, for UK defence and air-gapped
+sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
 free, open-source software, except LangSmith itself, which needs a licence from LangChain.
 
 > Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, render, schema and policy tests, unit
@@ -25,7 +27,8 @@ free, open-source software, except LangSmith itself, which needs a licence from 
 | Observability | OpenSearch, kube-prometheus-stack, Falco | Apache-2.0 (Grafana AGPL-3.0) |
 | Model service | vLLM, upstream image as shipped | Apache-2.0 |
 | Air-gap packaging | Zarf | Apache-2.0 |
-| Agent platform | LangSmith (SmithDB, no ClickHouse), Agent Server | Commercial licence |
+| Autoscaling | KEDA (required by LangSmith Deployment) | Apache-2.0 |
+| Agent platform | LangSmith (SmithDB, no ClickHouse), Agent Server, LLM Gateway | Commercial licence |
 
 Two modes come from the same code (AD-44):
 

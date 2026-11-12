@@ -11,6 +11,7 @@ resources:
   - istio-base.yaml
   - istio-ingress.yaml
   - istiod.yaml
+  - keda.yaml
   - keycloak-operator.yaml
   - kube-prometheus-stack.yaml
   - kyverno.yaml

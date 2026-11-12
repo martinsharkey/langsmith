@@ -85,6 +85,10 @@ components:
     version: 10.18.0
     url: https://argoproj.github.io/argo-helm
     namespace: argocd
+  - name: keda
+    version: 2.21.0
+    url: https://kedacore.github.io/charts
+    namespace: keda
   images:
   - docker.io/valkey/valkey:9.1.3
   - ghcr.io/cloudnative-pg/postgresql:18

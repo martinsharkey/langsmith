@@ -23,6 +23,7 @@ spec:
     - https://falcosecurity.github.io/charts
     - https://fluent.github.io/helm-charts
     - https://langchain-ai.github.io/helm
+    - https://kedacore.github.io/charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

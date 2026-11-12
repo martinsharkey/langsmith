@@ -40,6 +40,7 @@ spec:
                       - "quay.io/prometheus-operator/*"
                       - "quay.io/openbao/*"
                       - "ghcr.io/external-secrets/*"
+                      - "ghcr.io/kedacore/*"
                       - "reg.kyverno.io/kyverno/*"
                       - "docker.io/rook/*"
                       - "docker.io/goharbor/*"

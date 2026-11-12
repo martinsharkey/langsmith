@@ -14,6 +14,7 @@ platform:
   valkey-image: docker.io/valkey/valkey:9.1.3
   harbor-chart: 1.19.4              # https://helm.goharbor.io
   keycloak-operator: 26.8.2         # github.com/keycloak/keycloak-k8s-resources
+  keda-chart: 2.21.0               # https://kedacore.github.io/charts  (KEDA v2.21.0)
   kyverno-chart: 3.9.2              # https://kyverno.github.io/kyverno  (Kyverno v1.20.0)
   istio-charts: 1.32.0              # https://istio-release.storage.googleapis.com/charts
   opensearch-chart: 3.9.0           # https://opensearch-project.github.io/helm-charts
