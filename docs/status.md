@@ -2,7 +2,7 @@
 
 | Area | State | Gate reached |
 | --- | --- | --- |
-| Design (DP-AI-001-C v0.2) | Drafted and independently reviewed | Stage 1 in progress |
+| Solution architecture (DP-AI-001 v2.0) and assurance annex (DP-AI-001-C v0.2) | Drafted | Stage 1 in progress |
 | Repository validation (lint, render, schema, policy tests, unit tests) | Automated in CI | PR |
 | Test-workspace deployment (B1) | Not yet run | E1 pending |
 | Enclave deployment (B2) | Not yet run | Zero-egress test pending |
@@ -17,6 +17,7 @@
 | I-15 | Valkey vs Redis 8 for Agent Server (conflicting LangChain guidance) | LangChain |
 | D-08 | Nutanix platform version, GPU passthrough, air-gapped hall, classifications supported | Hosting provider |
 | R-27 | FIPS coverage of each open-source component | Innovox |
+| R-32 | Enterprise plan entitlements for LangSmith Deployment, RBAC and SCIM | LangChain |
 
 ## Known gaps in this repository (planned work)
 
@@ -30,3 +31,10 @@
 | Zarf image lists generated with `make zarf-images` | 3 |
 | Migrate Kyverno `ClusterPolicy` (deprecated) to `ValidatingPolicy` / `ImageValidatingPolicy` | 3 |
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |
+| Workbench (Next.js back end for front end on `useStream`, AD-55) | 2 |
+| Prove SmithDB pod-IP traffic through the Istio mesh, e.g. headless Services or sidecar exclusion (I-16) | 2 |
+| Confirm the Grafana bundled by kube-prometheus-stack is 13+ for LangChain's dashboard bundle; import it | 2 |
+| OpenTelemetry Collector for SmithDB OTLP traces | 2 |
+| Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
+| Agent template: deep agent with custom auth, store auth and gateway model classes (AD-57, AD-59) | 2 |
+| Mirrored package index for agent builds in the enclave (D-12) | 3 |

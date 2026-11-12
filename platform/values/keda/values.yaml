@@ -1,0 +1,5 @@
+# KEDA operator and metrics API server. RKE2 already ships metrics-server, which SmithDB's autoscalers need.
+operator:
+  replicaCount: 2
+metricsServer:
+  replicaCount: 2

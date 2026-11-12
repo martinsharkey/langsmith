@@ -79,3 +79,12 @@ istioGateway:
   enabled: true
   name: platform-gateway
   namespace: istio-ingress
+
+# LangSmith LLM Gateway (beta, chart 0.17.1+): the only route from agents to models (AD-59). Enabled for every
+# organisation in the installation. Presidio PII detection is optional and off until the data policy needs it.
+agentGateway:
+  enabled: true
+presidioAnalyzer:
+  enabled: false
+
+# Sandboxes are off in the first build (AD-56): they need privileged pods, /dev/kvm and JuiceFS.
