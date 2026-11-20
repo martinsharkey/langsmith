@@ -102,7 +102,7 @@ function Session(props: {
   function decide(decision: Decision) {
     const decisions = pending.map(() => decision);
     setRejectReason("");
-    void stream.submit(null, { command: { resume: { decisions } } });
+    void stream.respond({ decisions });
   }
 
   return (
