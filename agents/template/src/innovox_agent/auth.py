@@ -20,7 +20,7 @@ from typing import Any
 import jwt
 from langgraph_sdk import Auth
 
-from . import settings
+from innovox_agent import settings
 
 ADMIN_ROLE = "agent-admin"
 ALGORITHMS = ["RS256", "ES256", "PS256"]

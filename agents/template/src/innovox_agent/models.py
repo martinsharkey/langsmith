@@ -9,7 +9,7 @@ from __future__ import annotations
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
-from . import settings
+from innovox_agent import settings
 
 
 def model_for(model_class: str | None = None) -> BaseChatModel:
