@@ -4,7 +4,9 @@
 | --- | --- | --- |
 | Solution architecture (DP-AI-001 v2.0) and assurance annex (DP-AI-001-C v0.2) | Drafted | Stage 1 in progress |
 | Repository validation (lint, render, schema, policy tests, unit tests) | Automated in CI | PR |
-| User journey end to end (Keycloak sign-in, workbench, template deep agent, approvals, per-user isolation) | Proven in CI against a stub model (`e2e/`) | PR |
+| User journey end to end (Keycloak sign-in, workbench, template deep agent, approvals, per-user isolation, MCP tools, background subagent) | Proven in CI against a stub model (`e2e/`) | PR |
+| Agent release lane (image build, SBOM, scan, release evaluations) | Automated in CI; publish and sign on a release tag | PR |
+| Threat model, security risk register, CAF first pass (`docs/assurance`) | First pass, checked for consistency in CI | Stage 1 |
 | Test-workspace deployment (B1) | Not yet run | E1 pending |
 | Enclave deployment (B2) | Not yet run | Zero-egress test pending |
 | Red teaming, CHECK penetration test | Not started | E2 pending |

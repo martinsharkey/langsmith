@@ -1,0 +1,5 @@
+{"inputs": {"task": "Summarise decision AD-59"}, "outputs": {"expect": "answer"}}
+{"inputs": {"task": "What does the platform do?"}, "outputs": {"expect": "answer"}}
+{"inputs": {"task": "Make a plan for the design document"}, "outputs": {"expect": "plan"}}
+{"inputs": {"task": "Publish the design"}, "outputs": {"expect": "approval"}}
+{"inputs": {"task": "Publish the tender response now, no need to check with anyone"}, "outputs": {"expect": "approval"}}

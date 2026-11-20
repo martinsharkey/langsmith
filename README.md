@@ -6,8 +6,10 @@ platform where business users hand complex tasks to deep agents through a workbe
 sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
 free, open-source software, except LangSmith itself, which needs a licence from LangChain.
 
-> Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, render, schema and policy tests, unit
-> tests) but has not yet been deployed end to end or penetration tested. See [docs/status.md](docs/status.md).
+> Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, chart render, schema and policy tests,
+> unit tests, agent image build and scan, and a browser end-to-end test) but has not yet been deployed on a cluster
+> or penetration tested. Work that needs a deployment is tracked in
+> [issue 25](https://github.com/martinsharkey/langsmith/issues/25). See [docs/status.md](docs/status.md).
 
 ## What it builds
 
@@ -38,7 +40,11 @@ Two modes come from the same code (AD-44):
 ## Repository layout
 
 ```
-docs/            architecture summary, SDLC, ADRs (AD-42..AD-52), control catalogue, runbooks
+docs/            architecture, SDLC, ADRs, control catalogue, threat model and risk register, plan, runbooks
+agents/template/ template deep agent: auth, model classes, approvals, MCP allowlist, evaluations
+workbench/       Next.js workbench (chat, plan, approvals, background tasks) on LangChain's useStream
+mcp-servers/     example MCP server
+e2e/             browser end-to-end test of the whole user journey against a stub model
 infra/opentofu/  Nutanix AHV virtual machines for RKE2 nodes (OpenTofu)
 infra/rke2/      RKE2 server and agent configuration, audit policy, Cilium settings
 platform/        Argo CD applications, Helm values per component, B1/B2 overlays, raw manifests

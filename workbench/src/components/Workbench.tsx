@@ -24,7 +24,7 @@ const FINISHED = new Set(["success", "error", "cancelled", "timeout", "interrupt
 // A background task reports back with a message Deep Agents labels as a notification; it is not something the
 // user typed, so it is not shown as one.
 function isNotification(message: AnyMessage): boolean {
-  return Boolean(message.additional_kwargs?.deepagents_notification);
+  return Boolean(message.additional_kwargs?.deepagents_notification) || textOf(message.content).includes("<task-notification>");
 }
 
 const THREAD_KEY = "wb.threadId";

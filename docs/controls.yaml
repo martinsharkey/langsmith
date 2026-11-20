@@ -47,9 +47,14 @@ controls:
     name: Least privilege for agents and tools
     answers: [OWASP Agentic ASI02, OWASP Agentic ASI03, OWASP LLM excessive agency, NCSC CSP 9, NCSC CSP 10]
     mechanism: innovox
-    implemented_by: [platform/manifests/keycloak/, platform/values/langsmith/values.yaml]
-    gate: E1
-    evidence: auth configuration, negative tests
+    implemented_by:
+      - platform/manifests/keycloak/
+      - platform/values/langsmith/values.yaml
+      - agents/template/src/innovox_agent/auth.py
+      - agents/template/src/innovox_agent/mcp_tools.py
+      - workbench/src/lib/proxy-rules.ts
+    gate: PR, E1
+    evidence: auth configuration, negative tests (agent unit tests, e2e browser tests)
   - id: CTL-08
     name: Egress control
     answers: [NCSC CSP 11]
@@ -96,14 +101,21 @@ controls:
     name: Human oversight
     answers: [JSP 936, OWASP Agentic ASI09]
     mechanism: native
-    implemented_by: [agent code (Deep Agents interrupt_on), LangSmith annotation queues]
-    gate: E2
-    evidence: approval and review logs
+    implemented_by:
+      - agents/template/src/innovox_agent/tools.py
+      - agents/template/src/innovox_agent/agent.py
+      - agents/template/evals/run.py
+    native_features: [Deep Agents interrupt_on, LangSmith annotation queues]
+    gate: PR, E2
+    evidence: approval_gate evaluation, e2e browser tests, approval and review logs
   - id: CTL-15
     name: Memory and context poisoning
     answers: [OWASP Agentic ASI06, OWASP LLM data and model poisoning]
     mechanism: native
-    implemented_by: [LangSmith Context Hub versioning, per-agent stores]
+    implemented_by:
+      - agents/template/src/innovox_agent/agent.py
+      - agents/template/src/innovox_agent/auth.py
+    native_features: [LangSmith Context Hub versioning, per-user store namespaces]
     gate: E2
     evidence: red-team results, content version history
   - id: CTL-16

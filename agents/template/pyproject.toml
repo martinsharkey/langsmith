@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8", "pytest-asyncio>=0.25"]
+evals = ["langsmith>=0.4"]
 dev = ["langgraph-cli[inmem]>=0.4"]
 
 [tool.setuptools.packages.find]
