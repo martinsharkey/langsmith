@@ -88,3 +88,11 @@ presidioAnalyzer:
   enabled: false
 
 # Sandboxes are off in the first build (AD-56): they need privileged pods, /dev/kvm and JuiceFS.
+
+# Insights and Chat each bundle their own in-cluster PostgreSQL and Redis. The chart's default redis:7 image is
+# source-available (RSALv2/SSPL), which AD-52 refuses, so the bundled store uses Valkey, which LangChain lists as a
+# supported drop-in for Redis. Found by the rendered-chart policy check; to be proven at E1.
+images:
+  redisImage:
+    repository: docker.io/valkey/valkey
+    tag: "9.1.3"

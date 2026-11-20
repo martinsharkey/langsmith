@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
       - run: pip install yamllint==1.38.0
       - run: yamllint -s .
-      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh scripts/*.sh
+      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh
 
   secrets:
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
       - name: admission policies against rendered workloads
         run: |
           curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
-          scripts/check_rendered_policies.sh out/rendered-b1
+          scripts/check_rendered_policies.py out/rendered-b1
       - name: list images
         if: always()
         run: |

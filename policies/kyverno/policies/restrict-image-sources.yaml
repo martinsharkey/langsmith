@@ -51,4 +51,12 @@ spec:
                       - "docker.io/grafana/*"
                       - "registry.k8s.io/*"
                       - "docker.io/rancher/*"
+                      - "registry.istio.io/release/*"
+                      - "ghcr.io/kyverno/*"
+                      - "ghcr.io/jkroepke/kube-webhook-certgen:*"
+                      - "quay.io/kiwigrid/k8s-sidecar:*"
+                      - "docker.io/postgres:*"
                       - "harbor.site.example/innovox/*"
+                      # Istio's gateway chart ships the placeholder image "auto"; the sidecar injector replaces it,
+                      # and the injected Pod is checked again against this list.
+                      - "auto"

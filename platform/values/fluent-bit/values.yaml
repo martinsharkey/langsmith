@@ -47,3 +47,5 @@ extraVolumeMounts:
   - name: rke2-audit
     mountPath: /var/lib/rancher/rke2/server/logs
     readOnly: true
+testFramework:
+  enabled: false

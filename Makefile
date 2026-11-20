@@ -8,7 +8,7 @@ validate: lint secrets schemas policies iac unit
 
 lint:
 	yamllint -s .
-	shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh scripts/*.sh
+	shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh
 
 secrets:
 	gitleaks dir . --config .gitleaks.toml --redact --no-banner
