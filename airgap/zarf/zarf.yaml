@@ -30,15 +30,15 @@ components:
     url: https://kyverno.github.io/kyverno
     namespace: kyverno
   - name: base
-    version: 1.31.4
+    version: 1.30.8
     url: https://istio-release.storage.googleapis.com/charts
     namespace: istio-system
   - name: istiod
-    version: 1.31.4
+    version: 1.30.8
     url: https://istio-release.storage.googleapis.com/charts
     namespace: istio-system
   - name: gateway
-    version: 1.31.4
+    version: 1.30.8
     url: https://istio-release.storage.googleapis.com/charts
     namespace: istio-ingress
   - name: openbao
