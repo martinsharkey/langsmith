@@ -3,8 +3,10 @@ the deployment (LangSmith workspace secrets), never from files in the repository
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,9 @@ class Settings:
     oidc_issuer: str
     oidc_audience: str
     oidc_jwks_url: str
+    # MCP servers that supply tools, and the only tool names the agent may use from them (default: none).
+    mcp_servers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    mcp_allowed_tools: frozenset[str] = frozenset()
 
 
 def load() -> Settings:
@@ -30,4 +35,8 @@ def load() -> Settings:
         oidc_issuer=issuer,
         oidc_audience=os.environ.get("OIDC_AUDIENCE", "workbench"),
         oidc_jwks_url=os.environ.get("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs"),
+        mcp_servers=json.loads(os.environ.get("MCP_SERVERS") or "{}"),
+        mcp_allowed_tools=frozenset(
+            name.strip() for name in os.environ.get("MCP_ALLOWED_TOOLS", "").split(",") if name.strip()
+        ),
     )

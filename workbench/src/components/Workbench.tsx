@@ -9,7 +9,23 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 type Todo = { content: string; status: "pending" | "in_progress" | "completed" };
 type ActionRequest = { name: string; args: Record<string, unknown>; description?: string };
 type Decision = { type: "approve" } | { type: "reject"; message: string };
-type AnyMessage = { id?: string; type?: string; getType?: () => string; content: unknown; tool_calls?: { id?: string; name: string }[] };
+type AnyMessage = {
+  id?: string;
+  type?: string;
+  getType?: () => string;
+  content: unknown;
+  tool_calls?: { id?: string; name: string }[];
+  additional_kwargs?: Record<string, unknown>;
+};
+// Deep Agents records each background (async subagent) task in the `async_tasks` state channel.
+type AsyncTask = { task_id: string; agent_name: string; status: string };
+const FINISHED = new Set(["success", "error", "cancelled", "timeout", "interrupted"]);
+
+// A background task reports back with a message Deep Agents labels as a notification; it is not something the
+// user typed, so it is not shown as one.
+function isNotification(message: AnyMessage): boolean {
+  return Boolean(message.additional_kwargs?.deepagents_notification);
+}
 
 const THREAD_KEY = "wb.threadId";
 
@@ -70,26 +86,65 @@ function Session(props: {
   onThreadId: (id: string) => void;
   onNewTask: () => void;
 }) {
+  const [knownThread, setKnownThread] = useState<string | null>(props.threadId);
   const stream = useStream({
     apiUrl: props.apiUrl,
     assistantId: props.assistantId,
     threadId: props.threadId,
-    onThreadId: props.onThreadId,
+    onThreadId: (id: string) => {
+      setKnownThread(id);
+      props.onThreadId(id);
+    },
     transport: "sse",
   });
   const [draft, setDraft] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [openFile, setOpenFile] = useState<string | null>(null);
 
-  const values = (stream.values ?? {}) as { todos?: Todo[]; files?: Record<string, unknown> };
+  const values = (stream.values ?? {}) as {
+    todos?: Todo[];
+    files?: Record<string, unknown>;
+    async_tasks?: Record<string, AsyncTask>;
+  };
+  // A background task finishes after the run that started it, so its status is read from the thread while any
+  // task is still open.
+  const [polledTasks, setPolledTasks] = useState<Record<string, AsyncTask> | null>(null);
+  const [polledAnswer, setPolledAnswer] = useState<string | null>(null);
+  const streamTasks = values.async_tasks;
+  const tasks = Object.values({ ...(streamTasks ?? {}), ...(polledTasks ?? {}) });
+  const openTasks = tasks.some((task) => !FINISHED.has(task.status));
+  useEffect(() => {
+    if (!openTasks || !knownThread || stream.isLoading) return;
+    let stopped = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`${props.apiUrl}/threads/${knownThread}/state`, { credentials: "same-origin" });
+        if (!response.ok || stopped) return;
+        const state = (await response.json()) as { values?: { async_tasks?: Record<string, AsyncTask>; messages?: AnyMessage[] } };
+        setPolledTasks(state.values?.async_tasks ?? {});
+        const last = state.values?.messages?.at(-1);
+        if (last && (last.type ?? "") === "ai") setPolledAnswer(textOf(last.content));
+      } catch {
+        // the next tick retries
+      }
+    }, 2000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [openTasks, knownThread, stream.isLoading, props.apiUrl]);
   const todos = values.todos ?? [];
   const files = values.files ?? {};
   const subagents = useMemo(() => [...stream.subagents.values()], [stream.subagents]);
   const pending = actionRequests(stream.interrupt);
   const messages = (stream.messages as unknown as AnyMessage[]).filter((m) => {
     const kind = kindOf(m);
-    return kind === "human" || (kind === "ai" && (textOf(m.content) || m.tool_calls?.length));
+    if (kind === "human") return !isNotification(m);
+    return (kind === "ai" && (textOf(m.content) || m.tool_calls?.length));
   });
+
+  const lastShown = messages.length ? textOf(messages[messages.length - 1].content) : "";
+  const backgroundAnswer = polledAnswer && polledAnswer !== lastShown && !stream.isLoading ? polledAnswer : null;
 
   function send(event: FormEvent) {
     event.preventDefault();
@@ -136,6 +191,12 @@ function Session(props: {
               </li>
             );
           })}
+          {backgroundAnswer ? (
+            <li className="msg ai" data-testid="msg-background">
+              <span className="role">Agent</span>
+              <p>{backgroundAnswer}</p>
+            </li>
+          ) : null}
         </ol>
 
         {pending.length > 0 && (
@@ -223,6 +284,21 @@ function Session(props: {
                 <li key={s.id} className={s.status}>
                   <strong>{s.name}</strong> <span className="muted">{s.status}</span>
                   {s.taskInput ? <p>{s.taskInput}</p> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section data-testid="background-tasks">
+          <h2>Background tasks</h2>
+          {tasks.length === 0 ? (
+            <p className="muted">None started.</p>
+          ) : (
+            <ul>
+              {tasks.map((task) => (
+                <li key={task.task_id} data-status={task.status}>
+                  <strong>{task.agent_name}</strong> <span className="muted">{task.status}</span>
                 </li>
               ))}
             </ul>

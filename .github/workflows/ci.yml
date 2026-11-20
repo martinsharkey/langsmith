@@ -146,7 +146,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[test]"
-      - run: pip freeze | grep -iE "deepagents|langchain|langgraph|pyjwt"
+      - run: pip freeze | grep -iE "deepagents|langchain|langgraph|pyjwt|mcp"
       - run: pytest -q
 
   workbench:
@@ -180,7 +180,7 @@ jobs:
           node-version: "22"
       - name: install agent, workbench and test runner
         run: |
-          pip install -e "agents/template[dev]"
+          pip install -e "agents/template[dev]" -r mcp-servers/reference/requirements.txt
           (cd workbench && npm install --no-audit --no-fund && NEXT_TELEMETRY_DISABLED=1 npm run build)
           (cd e2e && npm install --no-audit --no-fund && npx playwright install --with-deps chromium)
       - name: start the stack

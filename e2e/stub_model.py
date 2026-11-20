@@ -7,6 +7,9 @@ needs no model, no GPU and no network:
 - the last message is a tool result  -> a final text answer quoting it
 - the user asks to "publish"         -> a `publish_document` tool call (which the agent must pause on)
 - the user asks for a "plan"         -> a `write_todos` tool call
+- the user asks to "look up"         -> a `lookup_reference` tool call (a tool from the example MCP server)
+- the user asks for "background"     -> a `start_async_task` tool call (the analyst async subagent)
+- a background task notification     -> a short acknowledgement
 - anything else                      -> a short text reply
 """
 from __future__ import annotations
@@ -30,6 +33,13 @@ def decide(messages: list[dict]) -> dict:
         return {"content": f"Finished: {text_of(last.get('content'))}"}
     user = next((text_of(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
     lowered = user.lower()
+    if "<task-notification>" in lowered:
+        return {"content": "The background analysis has finished."}
+    if "look up" in lowered:
+        return {"tool": "lookup_reference", "args": {"key": "AD-59"}}
+    if "background" in lowered:
+        return {"tool": "start_async_task", "args": {"description": "Analyse decision AD-59",
+                                                     "subagent_type": "analyst"}}
     if "publish" in lowered:
         return {"tool": "publish_document", "args": {"title": "Design", "body": "Approved text"}}
     if "plan" in lowered:
