@@ -38,3 +38,6 @@
 | OpenTelemetry Collector for SmithDB OTLP traces | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
 | Mirrored package index for agent builds in the enclave (D-12) | 3 |
+
+Open work that needs a deployment is tracked as GitHub issues; see the table in `docs/plan.md` and
+[issue 25](https://github.com/martinsharkey/langsmith/issues/25).

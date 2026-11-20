@@ -33,3 +33,27 @@ workstream (more where a stream is large). Status is updated in the pull request
 - Behaviour on real infrastructure: storage performance, GPUs, the air gap.
 
 Those follow in delivery stages 2 to 4 (`docs/status.md`).
+
+Each of these is recorded as a GitHub issue so it can be picked up during deployment. The tracker is
+[issue 25](https://github.com/martinsharkey/langsmith/issues/25).
+
+| Issue | Subject | Needs |
+| --- | --- | --- |
+| 7 | LangSmith licence or trial, online and offline | LangChain |
+| 8 | First cluster deployment of the open-source layer (B1, gate E1) | Cluster |
+| 9 | SmithDB-only install on RKE2, Rook-Ceph and CloudNativePG | Cluster, licence |
+| 10 | SmithDB traffic through the Istio mesh | Cluster, licence |
+| 11 | Valkey versus Redis | Cluster, licence |
+| 12 | LLM Gateway with real model classes | Cluster, licence |
+| 13 | Keycloak single sign-on and group sync with LangSmith | Cluster, licence |
+| 14 | Template agent through the deployment control plane | Cluster, licence |
+| 15 | LangChain image signatures at admission | Cluster, LangChain |
+| 16 | Disconnected enclave (B2) | Cluster, offline licence |
+| 17 | Host checks: Nutanix, GPUs, storage, FIPS | Host |
+| 18 | Real model through the intake gate, served on vLLM | Cluster, GPUs |
+| 19 | Istio ingress namespace to the restricted level | Cluster |
+| 20 | Observability on a live platform | Cluster |
+| 21 | Backup, restore and upgrade rehearsal | Cluster, licence |
+| 22 | Red teaming and CHECK penetration test (gates E2, P1) | Deployed platform |
+| 23 | Workbench lockfile, shared session store and deployment | Partly now, partly cluster |
+| 24 | End-to-end test: MCP tool server and async subagent | Nothing; can be done now |
