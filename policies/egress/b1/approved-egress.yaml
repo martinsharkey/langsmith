@@ -1,19 +1,39 @@
-# Mode B1 (connected, OFFICIAL-SENSITIVE). The only external destinations: LangChain's licence beacon (required for
-# an online licence) and the UK model endpoints the customer has approved (AD-45). Add each approved endpoint to
-# BOTH lists below: the Cilium FQDN rule and the Istio ServiceEntry (the mesh refuses unregistered hosts).
+# Mode B1 (connected, OFFICIAL-SENSITIVE). Two external destinations only (AD-45):
+# - LangChain's beacon, which an online licence requires (licence check, subscription and usage reporting). Several
+#   LangSmith back-end services call it, so the rule covers the namespace.
+# - The UK model endpoints the customer has approved, reachable only from the LLM Gateway pods.
+# Add each approved endpoint to BOTH the gateway rule below and the Istio ServiceEntry (the mesh refuses
+# unregistered hosts).
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: langsmith-approved-egress
+  name: langsmith-licence-beacon
   namespace: langsmith
 spec:
   endpointSelector: {}
   egress:
     - toFQDNs:
         - matchName: beacon.langchain.com
-        # Approved UK model endpoints, for example Vertex AI's London regional endpoint:
-        # - matchName: europe-west2-aiplatform.googleapis.com
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: gateway-approved-model-endpoints
+  namespace: langsmith
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: langsmith-agent-gateway
+  egress:
+    - toFQDNs:
+        # One line for each customer-approved, UK-processed model endpoint. None is approved by default.
+        # - matchName: models.approved-provider.example
+        - matchName: no-endpoint-approved.invalid
       toPorts:
         - ports:
             - port: "443"
@@ -27,7 +47,7 @@ metadata:
 spec:
   hosts:
     - beacon.langchain.com
-    # - europe-west2-aiplatform.googleapis.com
+    # - models.approved-provider.example
   location: MESH_EXTERNAL
   resolution: DNS
   ports:
