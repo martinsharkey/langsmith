@@ -1,0 +1,41 @@
+# PostgreSQL for Dependency-Track, kept apart from LangSmith's cluster so neither affects the other's upgrades.
+# CloudNativePG creates database `dtrack`, role `dtrack` and Secret `dtrack-pg-app` (username, password).
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: dtrack-pg
+  namespace: supply-chain
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    storageClass: ceph-block
+    size: 20Gi
+  bootstrap:
+    initdb:
+      database: dtrack
+      owner: dtrack
+  monitoring:
+    enablePodMonitor: true
+  affinity:
+    enablePodAntiAffinity: true
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: dependency-track-kek
+  namespace: supply-chain
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  target:
+    name: dependency-track-kek
+    creationPolicy: Owner
+  data:
+  - secretKey: kek
+    remoteRef:
+      key: dependency-track/kek
+      property: kek

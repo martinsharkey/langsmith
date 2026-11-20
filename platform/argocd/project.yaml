@@ -24,6 +24,8 @@ spec:
     - https://fluent.github.io/helm-charts
     - https://langchain-ai.github.io/helm
     - https://kedacore.github.io/charts
+    - https://open-telemetry.github.io/opentelemetry-helm-charts
+    - https://dependencytrack.github.io/helm-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

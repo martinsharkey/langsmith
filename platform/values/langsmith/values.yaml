@@ -4,6 +4,13 @@
 # Images: pulled by their upstream names; RKE2's registries.yaml mirrors docker.io to the site Harbor.
 
 config:
+  # LangSmith's own service traces go to the platform's OpenTelemetry Collector (in-cluster; the mesh carries it).
+  observability:
+    tracing:
+      enabled: true
+      endpoint: http://otel-collector.observability.svc:4318
+      useTls: false
+      exporter: http
   existingSecretName: langsmith-config   # langsmith_license_key, api_key_salt, jwt_secret, oauth_client_secret,
                                           # blob_storage_access_key, blob_storage_access_key_secret,
                                           # insights_encryption_key, polly_encryption_key

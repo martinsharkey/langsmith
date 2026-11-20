@@ -46,6 +46,16 @@ spec:
             k8s:io.kubernetes.pod.namespace: keycloak
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: istio-ingress
+    - toEndpoints:                # LangSmith's own service traces, OTLP to the collector
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: opentelemetry-collector
+      toPorts:
+        - ports:
+            - port: "4317"
+              protocol: TCP
+            - port: "4318"
+              protocol: TCP
     - toEntities:
         - kube-apiserver          # the LangSmith operator manages Agent Server deployments
 ---

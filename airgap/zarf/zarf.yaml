@@ -30,6 +30,7 @@ components:
   images:
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/cert-manager:v1.21.3'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/cloudnative-pg:0.29.1'
+  - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/dependency-track:2.10.0'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/external-secrets:2.15.0'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/falco:9.2.2'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/fluent-bit:0.58.3'
@@ -43,6 +44,7 @@ components:
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/openbao:0.30.7'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/opensearch-dashboards:3.9.0'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/opensearch:3.9.0'
+  - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/opentelemetry-collector:0.180.0'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/rook-ceph:v1.21.2'
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/trust-manager:v0.26.0'
 - name: platform-images

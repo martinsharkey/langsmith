@@ -63,6 +63,8 @@ spec:
         "ghcr.io/jkroepke/kube-webhook-certgen:",
         "quay.io/kiwigrid/k8s-sidecar:",
         "docker.io/postgres:",
+        "ghcr.io/open-telemetry/opentelemetry-collector-releases/",
+        "docker.io/dependencytrack/",
         // Per-deployment store started by the LangGraph operator for each agent deployment.
         "docker.io/pgvector/pgvector:",
         "harbor.site.example/innovox/",
