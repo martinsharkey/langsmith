@@ -33,7 +33,7 @@
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |
 | Workbench (Next.js back end for front end on `useStream`, AD-55) | 2 |
 | Prove SmithDB pod-IP traffic through the Istio mesh, e.g. headless Services or sidecar exclusion (I-16) | 2 |
-| Confirm the Grafana bundled by kube-prometheus-stack is 13+ for LangChain's dashboard bundle; import it | 2 |
+| Import LangChain's dashboard bundle into Grafana (chart ships Grafana 13.3.1, confirmed by CI render) | 2 |
 | OpenTelemetry Collector for SmithDB OTLP traces | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
 | Agent template: deep agent with custom auth, store auth and gateway model classes (AD-57, AD-59) | 2 |

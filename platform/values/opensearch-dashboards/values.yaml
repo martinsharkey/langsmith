@@ -1,1 +1,3 @@
 replicaCount: 2
+image:
+  repository: docker.io/opensearchproject/opensearch-dashboards   # fully qualified for the admission allowlist

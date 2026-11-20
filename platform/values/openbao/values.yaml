@@ -3,6 +3,15 @@
 injector:
   enabled: false
 server:
+  statefulSet:
+    securityContext:
+      container:                 # meets the 'restricted' Pod Security level of the openbao namespace
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
   ha:
     enabled: true
     replicas: 3

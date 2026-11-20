@@ -20,7 +20,7 @@ spec:
         pattern:
           spec:
             containers:
-              - image: "*:* | *@sha256:*"
+              - image: "*:* | *@sha256:* | auto"   # "auto" is Istio's injection placeholder
     - name: disallow-latest
       match:
         any:

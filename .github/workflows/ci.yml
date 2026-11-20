@@ -75,17 +75,38 @@ jobs:
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: render LangSmith for both modes
+      - name: render every chart for both modes
         run: |
-          helm repo add langchain https://langchain-ai.github.io/helm
+          pip install pyyaml==6.0.3
+          for m in b1 b2; do scripts/render_charts.py "$m" "out/rendered-$m"; done
+      - name: ClickHouse must not be rendered
+        run: |
           for m in b1 b2; do
-            helm template langsmith langchain/langsmith --version 0.17.51 --namespace langsmith \
-              -f platform/values/langsmith/values.yaml -f "platform/values/langsmith/values-$m.yaml" > "langsmith-$m.yaml"
-            echo "mode $m: $(grep -c '^kind:' "langsmith-$m.yaml") objects"
-            if grep -A4 '^kind: StatefulSet' "langsmith-$m.yaml" | grep -q 'name: .*clickhouse'; then
+            if grep -A4 '^kind: StatefulSet' "out/rendered-$m/langsmith.yaml" | grep -q 'name: .*clickhouse'; then
               echo "ClickHouse StatefulSet rendered but must be disabled"; exit 1
             fi
           done
+      - name: schema-check rendered objects
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
+          ./kubeconform -summary -ignore-missing-schemas -kubernetes-version "$K8S_VERSION" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            out/rendered-b1/*.yaml
+      - name: admission policies against rendered workloads
+        run: |
+          curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
+          scripts/check_rendered_policies.py out/rendered-b1
+      - name: list images
+        if: always()
+        run: |
+          grep -rhoE '^\s*image: .*' out/rendered-b1/*.yaml | sed -E 's/^\s*image: //; s/"//g' | sort -u
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: rendered
+          path: out/rendered-b*/[a-z]*.yaml
+          retention-days: 7
 
   iac:
     runs-on: ubuntu-latest

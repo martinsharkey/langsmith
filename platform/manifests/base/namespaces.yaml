@@ -1,5 +1,6 @@
 # Pod Security levels per namespace. Privileged only where the component needs host access (storage, CNI,
-# runtime detection, log collection). Mesh injection on every namespace that carries user or model traffic.
+# runtime detection, log collection). istio-ingress is baseline: the gateway chart's pod template sets no seccomp
+# profile before injection; raise it to restricted once the injected pod is confirmed compliant at E1. Mesh injection on every namespace that carries user or model traffic.
 ---
 apiVersion: v1
 kind: Namespace
@@ -36,7 +37,7 @@ kind: Namespace
 metadata:
   name: istio-ingress
   labels:
-    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
     innovox.uk/platform: dp-ai-001-c
