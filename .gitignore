@@ -12,3 +12,6 @@ dist/
 zarf-package-*.tar.zst
 /out/
 .env
+e2e/logs/
+e2e/test-results/
+node_modules/

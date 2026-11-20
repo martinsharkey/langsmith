@@ -1,0 +1,53 @@
+{
+  "realm": "langsmith",
+  "enabled": true,
+  "sslRequired": "none",
+  "roles": { "realm": [{ "name": "agent-user" }] },
+  "clients": [
+    {
+      "clientId": "workbench",
+      "name": "Workbench (end-to-end test realm only)",
+      "secret": "e2e-test-only",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": { "post.logout.redirect.uris": "http://localhost:3000/*" },
+      "protocolMappers": [
+        {
+          "name": "workbench-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "workbench",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@example.test",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Tester",
+      "realmRoles": ["agent-user"],
+      "credentials": [{ "type": "password", "value": "e2e-test-only", "temporary": false }]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.test",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Tester",
+      "realmRoles": ["agent-user"],
+      "credentials": [{ "type": "password", "value": "e2e-test-only", "temporary": false }]
+    }
+  ]
+}
