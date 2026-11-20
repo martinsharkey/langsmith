@@ -21,6 +21,9 @@ components:
     version: 10.18.0
     url: https://argoproj.github.io/argo-helm
     namespace: argocd
+    releaseName: argocd
+    valuesFiles:
+    - ../../platform/values/argocd/values.yaml
 - name: platform-charts
   required: true
   description: Helm charts as OCI artefacts, at the versions in platform/apps

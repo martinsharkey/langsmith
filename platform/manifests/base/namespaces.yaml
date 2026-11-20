@@ -2,6 +2,17 @@
 # runtime detection, log collection). istio-ingress is baseline: the gateway chart's pod template sets no seccomp
 # profile before injection; raise it to restricted once the injected pod is confirmed compliant at E1. Mesh injection on every namespace that carries user or model traffic.
 ---
+# Created by the Argo CD install; listed here so its Pod Security level is set and kept by Argo CD itself.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    innovox.uk/platform: dp-ai-001-c
+---
 apiVersion: v1
 kind: Namespace
 metadata:

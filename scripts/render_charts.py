@@ -42,7 +42,8 @@ def main() -> int:
     apps.append({"metadata": {"name": "argo-cd"}, "spec": {
         "destination": {"namespace": "argocd"},
         "source": {"repoURL": "https://argoproj.github.io/argo-helm", "chart": "argo-cd",
-                   "targetRevision": versions["gitops"]["argo-cd-chart"], "helm": {"releaseName": "argocd"}}}})
+                   "targetRevision": versions["gitops"]["argo-cd-chart"],
+                   "helm": {"releaseName": "argocd", "valueFiles": ["$values/platform/values/argocd/values.yaml"]}}}})
     for app in apps:
         name = app["metadata"]["name"]
         spec = app["spec"]

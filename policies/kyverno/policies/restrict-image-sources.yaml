@@ -36,6 +36,8 @@ spec:
                       - "quay.io/keycloak/*"
                       - "quay.io/jetstack/*"
                       - "quay.io/argoproj/*"
+                      # Argo CD's own cache, as its chart ships it (Redis 8, AGPL-3.0). Used by Argo CD only.
+                      - "ecr-public.aws.com/docker/library/redis:*"
                       - "quay.io/prometheus/*"
                       - "quay.io/prometheus-operator/*"
                       - "quay.io/openbao/*"
