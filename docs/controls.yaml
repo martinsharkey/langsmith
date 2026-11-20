@@ -12,14 +12,14 @@ controls:
     name: SBOM and build provenance
     answers: [SSDF PS.3, SSDF PO.3, CAF A4.b, NCSC CSP 7]
     mechanism: native
-    implemented_by: [.github/workflows/ci.yml, platform/manifests/tekton/chains-config.yaml]
+    implemented_by: [.github/workflows/ci.yml, .github/workflows/agent-release.yml, platform/manifests/tekton/chains-config.yaml, platform/apps/dependency-track.yaml]
     gate: PR, E1
     evidence: CycloneDX SBOMs, SLSA provenance in the evidence bucket
   - id: CTL-03
     name: Vulnerability management
     answers: [SSDF RV.1, SSDF RV.2, NCSC CSP 5]
     mechanism: native
-    implemented_by: [platform/values/harbor/values.yaml, .github/workflows/ci.yml]
+    implemented_by: [platform/values/harbor/values.yaml, .github/workflows/ci.yml, platform/apps/dependency-track.yaml]
     gate: E1
     evidence: Trivy reports, exception register
   - id: CTL-04

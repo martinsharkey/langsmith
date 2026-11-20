@@ -28,13 +28,12 @@
 | --- | --- |
 | Kyverno rule to verify LangChain's keyless image signatures, once LangChain confirms the signing identity | 2 |
 | OpenSearch HTTP certificates issued by the platform CA (Fluent Bit already verifies against `opensearch-ca`) | 2 |
-| Dependency-Track deployment for SBOM and ML-BOM analysis | 2 |
-| Valkey high availability (currently one replica with persistence) | 2 |
+| Valkey high availability: LangChain supports standalone and Cluster, not Sentinel, so the route is Valkey Cluster. Deferred until standalone Valkey is proven (issue 11) | 2 |
+| Dependency-Track: sign-in through Keycloak, upload of SBOMs from the pipelines, and an offline vulnerability feed for the enclave | 2 |
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |
 | Workbench: Valkey-backed session store for more than one replica; npm lockfile; container image and Argo CD application | 2 |
 | Prove SmithDB pod-IP traffic through the Istio mesh, e.g. headless Services or sidecar exclusion (I-16) | 2 |
 | Import LangChain's dashboard bundle into Grafana (chart ships Grafana 13.3.1, confirmed by CI render) | 2 |
-| OpenTelemetry Collector for SmithDB OTLP traces | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
 | Mirrored package index for agent builds in the enclave (D-12) | 3 |
 | Images that operators pull at run time (Ceph CSI and others) listed from a running B1 cluster into `airgap/zarf/images-extra.txt` | 3 |
