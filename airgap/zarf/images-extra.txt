@@ -1,0 +1,5 @@
+# Images that no rendered chart or manifest names, because an operator or an injector pulls them at run time.
+# Kept by hand; the zero-egress deployment (issue 16) is the proof that the list is complete.
+quay.io/keycloak/keycloak-operator:26.8.2   # installed from the keycloak-k8s-resources git source
+quay.io/keycloak/keycloak:26.8.2            # started by the Keycloak operator
+registry.istio.io/release/proxyv2:1.30.8    # injected sidecars and the ingress gateway (image "auto")

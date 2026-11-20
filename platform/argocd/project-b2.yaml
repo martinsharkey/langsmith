@@ -1,0 +1,18 @@
+---
+# Argo CD project for mode B2. Sources are the enclave registry and git server, whose addresses Zarf sets at
+# `zarf init`; nothing else is reachable from a zero-egress enclave, so sources are not listed by name here.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+spec:
+  description: Innovox sovereign agentic platform, enclave (DP-AI-001-C, mode B2)
+  sourceRepos:
+    - "*"
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
