@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
       - run: pip install yamllint==1.38.0
       - run: yamllint -s .
-      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh
+      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh e2e/*.sh
 
   secrets:
     runs-on: ubuntu-latest
@@ -166,3 +166,29 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "22"
+      - name: install agent, workbench and test runner
+        run: |
+          pip install -e "agents/template[dev]"
+          (cd workbench && npm install --no-audit --no-fund && NEXT_TELEMETRY_DISABLED=1 npm run build)
+          (cd e2e && npm install --no-audit --no-fund && npx playwright install --with-deps chromium)
+      - name: start the stack
+        run: e2e/run-stack.sh
+      - name: browser tests
+        run: cd e2e && npm test
+      - name: logs
+        if: always()
+        run: |
+          for f in e2e/logs/*.log; do echo "::group::$f"; tail -n 150 "$f"; echo "::endgroup::"; done
+          echo "::group::keycloak"; docker logs e2e-keycloak 2>&1 | tail -n 40; echo "::endgroup::"

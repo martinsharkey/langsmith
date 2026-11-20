@@ -5,4 +5,4 @@ useDefault = true
 [allowlist]
 description = "OpenBao paths in ExternalSecret remoteRef.key are references to secrets, not secret values"
 regexTarget = "line"
-regexes = ['''^\s*key: (langsmith|observability|harbor|keycloak|models)/[a-z0-9/_-]+\s*$''']
+regexes = ['''^\s*key: (langsmith|observability|harbor|keycloak|models|workbench)/[a-z0-9/_-]+\s*$''']
