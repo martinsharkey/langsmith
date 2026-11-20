@@ -3,6 +3,7 @@ replicas: 3
 global:
   dockerRegistry: docker.io      # fully qualified image names, so the admission allowlist can match them
 persistence:
+  enableInitChown: false          # no busybox:latest init container; volume ownership comes from fsGroup
   storageClass: ceph-block
   size: 200Gi
 extraEnvs:
