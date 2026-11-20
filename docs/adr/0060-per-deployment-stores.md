@@ -9,4 +9,4 @@ The LangGraph operator starts a Redis pod and a PostgreSQL (pgvector) pod for ea
 
 ## Reason
 
-Redis 7 is source-available from 7.4 and so fails AD-52; neither default image was on the admission allowlist or in the enclave image list. Changing only the image keeps the override upgrade-safe (AD-40). To be proven on a cluster (issues 11 and 14).
+Redis 7 is source-available from 7.4 and so fails AD-52; neither default image was on the admission allowlist or in the enclave image list. Changing only the image keeps the override upgrade-safe (AD-40). To be proven on a cluster (issues 11 and 14). These operator-created stores are single pods with no backup, so they are for development; AD-65 covers production.

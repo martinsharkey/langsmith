@@ -142,7 +142,7 @@ sequenceDiagram
 ```
 
 For every agent deployment the LangGraph operator also starts a Valkey pod and a PostgreSQL (pgvector) pod, from the
-operator templates in the chart values (AD-60). MCP tools reach a model only through the deployment's allowlist (AD-62).
+operator templates in the chart values (AD-60); production deployments are to keep their state on CloudNativePG instead (AD-65, not yet built). MCP tools reach a model only through the deployment's allowlist (AD-62).
 
 Other patterns: other agents call platform agents over A2A at `/a2a/{assistant_id}`
 ([A2A](https://docs.langchain.com/langsmith/server-a2a)); any MCP client can call an assistant as a tool at `/mcp`

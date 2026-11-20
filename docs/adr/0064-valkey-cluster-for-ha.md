@@ -9,4 +9,4 @@ LangSmith's external cache and queue stay on one standalone Valkey until Valkey 
 
 ## Reason
 
-LangChain documents standalone Redis and Redis Cluster, including Valkey Cluster, for external Redis, and not Sentinel (AD-53). Building a cluster before the standalone case is proven would stack two unknowns.
+LangChain documents only standalone Redis and Redis Cluster, including Valkey Cluster, for external Redis (AD-53); Sentinel is not mentioned. Building a cluster before the standalone case is proven would stack two unknowns.

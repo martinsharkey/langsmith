@@ -36,6 +36,14 @@
 | Import LangChain's dashboard bundle into Grafana (chart ships Grafana 13.3.1, confirmed by CI render) | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
 | Mirrored package index for agent builds in the enclave (D-12) | 3 |
+| PostgreSQL point-in-time recovery: only a daily volume snapshot is configured; WAL archiving to object storage is not (issue 21) | 2 |
+| Production agent state on CloudNativePG through `POSTGRES_URI_CUSTOM` (AD-65); today the operator's single-pod store is used (issue 14) | 2 |
+| KEDA scaling for LangSmith's own queue services is not switched on (`autoscaling.keda.enabled`) | 2 |
+| Model classes S and L, the embedding model and the store index are not defined; only class M exists | 2 |
+| Model access is limited to the `langsmith` namespace, not to the gateway alone: any pod there can reach vLLM. Embeddings need the direct path | 2 |
+| Workbench features still to build: per-user task history, file upload, feedback, rewind | 2 |
+| Per-run call limits and timeouts in the template agent; trace redaction and retention; export of LangSmith audit logs to the evidence store | 2 |
+| MCP: the template uses `langchain-mcp-adapters`; LangChain's newer `MCPAdapter` (`langchain[mcp]`) is in beta and is adopted when it leaves beta | 3 |
 | Images that operators pull at run time (Ceph CSI and others) listed from a running B1 cluster into `airgap/zarf/images-extra.txt` | 3 |
 
 Open work that needs a deployment is tracked as GitHub issues; see the table in `docs/plan.md` and
