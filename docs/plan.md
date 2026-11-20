@@ -8,8 +8,8 @@ workstream (more where a stream is large). Status is updated in the pull request
 | W1 | Render every chart in CI and policy-check the output | Bad values and policy conflicts found before deployment | Done (findings below) |
 | W2 | Close known repository gaps | Kyverno policy migration, enclave OCI overlay, Zarf image lists, OpenTelemetry Collector, Dependency-Track, Valkey HA, SmithDB through the mesh | Not started |
 | W3 | Template deep agent | Custom auth, per-user store auth, gateway model classes, approval step, tests, `langgraph.json` | Done: `agents/template`, 19 tests. Async subagents and MCP tools follow in W5 |
-| W4 | Workbench | Next.js back end for front end on `useStream`: chat, plan, subagents, approvals, files | Not started |
-| W5 | End-to-end test in CI | Workbench to agent to stub model to example MCP server, browser-driven | Not started |
+| W4 | Workbench | Next.js back end for front end on `useStream`: chat, plan, subagents, approvals, files | Done: `workbench/` |
+| W5 | End-to-end test in CI | Workbench to agent to stub model, browser-driven, with a real Keycloak | Done: `e2e/`, 6 browser tests. An example MCP server and an async subagent are still to add |
 | W6 | Agent release pipeline | `langgraph build`, signature, SBOM, evaluations | Not started |
 | W7 | Assurance paperwork | Threat model, risk register, CAF first pass, catalogue and annex aligned to v2.0 | Not started |
 
