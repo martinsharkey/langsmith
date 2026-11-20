@@ -1,25 +1,29 @@
 # CTL-04 / AD-46. A model server may only start when it names the intake decision that approved its weights.
 # The model-intake tool issues decision IDs of the form INT-YYYYMMDD-xxxxxxxx.
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
 metadata:
   name: require-model-intake-record
   annotations:
     policies.kyverno.io/title: Require a model intake decision
     policies.kyverno.io/category: Model supply chain
 spec:
-  validationFailureAction: Enforce
-  background: true
-  rules:
-    - name: intake-record-present
-      match:
-        any:
-          - resources:
-              kinds: ["Pod"]
-              namespaces: ["models"]
-      validate:
-        message: "Model pods must carry annotation innovox.uk/intake-record with an approved decision ID (INT-YYYYMMDD-xxxxxxxx)."
-        pattern:
-          metadata:
-            annotations:
-              innovox.uk/intake-record: "INT-????????-????????"
+  validationActions: [Deny]
+  evaluation:
+    background:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: models-namespace
+      expression: object.metadata.namespace == "models"
+  validations:
+    - expression: >-
+        object.metadata.?annotations[?"innovox.uk/intake-record"].orValue("").matches("^INT-[0-9]{8}-[0-9a-f]{8}$")
+      message: >-
+        Model pods must carry annotation innovox.uk/intake-record with an approved decision ID
+        (INT-YYYYMMDD-xxxxxxxx).

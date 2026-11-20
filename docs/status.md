@@ -30,7 +30,6 @@
 | OpenSearch HTTP certificates issued by the platform CA (Fluent Bit already verifies against `opensearch-ca`) | 2 |
 | Dependency-Track deployment for SBOM and ML-BOM analysis | 2 |
 | Valkey high availability (currently one replica with persistence) | 2 |
-| Migrate Kyverno `ClusterPolicy` (deprecated) to `ValidatingPolicy` / `ImageValidatingPolicy` | 3 |
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |
 | Workbench: Valkey-backed session store for more than one replica; npm lockfile; container image and Argo CD application | 2 |
 | Prove SmithDB pod-IP traffic through the Istio mesh, e.g. headless Services or sidecar exclusion (I-16) | 2 |

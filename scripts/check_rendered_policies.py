@@ -100,7 +100,8 @@ def main() -> int:
         out = res.stdout + res.stderr
         summary = next((line for line in reversed(out.splitlines()) if line.startswith("pass:")), "no result")
         print(f"{path.name}: {summary.strip()}")
-        if res.returncode != 0:
+        failures = re.search(r"fail: (\d+)", summary)
+        if res.returncode != 0 or summary == "no result" or (failures and int(failures.group(1)) > 0):
             status = 1
             failed = sorted(set(re.findall(r"-> resource \S+?/(\w+/\S+) failed", out)))
             for name in failed:
