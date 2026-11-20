@@ -59,7 +59,13 @@ def main() -> int:
                 cmd += ["-f", str(vo)]
             res = run(cmd)
             if res.returncode != 0:
-                failures.append((name, res.stderr.strip()))
+                detail = res.stderr.strip()
+                if "not found in" in detail and "chart" in src:
+                    run(["helm", "repo", "add", f"dbg-{name}", src["repoURL"]])
+                    avail = run(["helm", "search", "repo", f"dbg-{name}/{src['chart']}", "--versions", "--devel"])
+                    detail += " | available: " + ", ".join(
+                        line.split()[1] for line in avail.stdout.splitlines()[1:9] if len(line.split()) > 1)
+                failures.append((name, detail))
                 continue
             (out / f"{name}.yaml").write_text(res.stdout)
             kinds = sum(1 for line in res.stdout.splitlines() if line.startswith("kind:"))
