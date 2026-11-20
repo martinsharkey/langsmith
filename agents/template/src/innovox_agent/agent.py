@@ -10,9 +10,9 @@ from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langchain.agents.middleware import TodoListMiddleware
 from langchain_core.language_models import BaseChatModel
 
-from .models import model_for
-from .settings import load
-from .tools import APPROVAL_REQUIRED, TOOLS, search_documents
+from innovox_agent.models import model_for
+from innovox_agent.settings import load
+from innovox_agent.tools import APPROVAL_REQUIRED, TOOLS, search_documents
 
 SYSTEM_PROMPT = """You are an Innovox task agent. Work methodically:
 
