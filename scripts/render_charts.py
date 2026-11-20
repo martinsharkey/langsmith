@@ -27,7 +27,7 @@ def main() -> int:
     if built.returncode != 0:
         print(built.stderr, file=sys.stderr)
         return 1
-    failures, summary = [], []
+    failures, summary, namespaces = [], [], {}
     for app in yaml.safe_load_all(built.stdout):
         if not app or app.get("kind") != "Application":
             continue
@@ -68,8 +68,10 @@ def main() -> int:
                 failures.append((name, detail))
                 continue
             (out / f"{name}.yaml").write_text(res.stdout)
+            namespaces[name] = namespace
             kinds = sum(1 for line in res.stdout.splitlines() if line.startswith("kind:"))
             summary.append((name, kinds))
+    (out / "_namespaces.json").write_text(json.dumps(namespaces, indent=2))
     for name, kinds in sorted(summary):
         print(f"rendered {name}: {kinds} objects")
     for name, err in failures:

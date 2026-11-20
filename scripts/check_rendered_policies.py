@@ -4,10 +4,14 @@
 A policy that would refuse the platform's own workloads is found in CI, not at deployment. Helm test hooks are
 dropped first: Argo CD does not apply them. Signature verification needs a registry and is checked at gate E1.
 
+It also checks each chart's workloads against the Pod Security level its namespace enforces
+(platform/manifests/base/namespaces.yaml), which the API server would otherwise refuse at deployment.
+
 Usage: check_rendered_policies.py <rendered dir>   (env KYVERNO = path to the kyverno CLI, default ./kyverno)
 """
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
@@ -44,12 +48,41 @@ def images(doc: dict) -> list[str]:
     return found
 
 
+PSS_POLICY = """apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-{level}
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: pss-{level}
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        podSecurity:
+          level: {level}
+          version: latest
+"""
+
+
+def namespace_levels() -> dict[str, str]:
+    levels = {}
+    for doc in yaml.safe_load_all(pathlib.Path("platform/manifests/base/namespaces.yaml").read_text()):
+        if doc and doc.get("kind") == "Namespace":
+            levels[doc["metadata"]["name"]] = doc["metadata"]["labels"]["pod-security.kubernetes.io/enforce"]
+    return levels
+
+
 def main() -> int:
     rendered = pathlib.Path(sys.argv[1])
     kyverno = os.environ.get("KYVERNO", "./kyverno")
     work = rendered / "_policy-input"
     work.mkdir(exist_ok=True)
     status = 0
+    levels = namespace_levels()
+    app_namespace = json.loads((rendered / "_namespaces.json").read_text())
     for path in sorted(rendered.glob("[a-z]*.yaml")):
         docs, by_name = [], {}
         for doc in yaml.load_all(path.read_text(), Loader=Loader):
@@ -74,6 +107,23 @@ def main() -> int:
                 print(f"  refused {name}: {', '.join(by_name.get(name, ['?']))}")
             if not failed:
                 print("  " + "\n  ".join(out.strip().splitlines()[-5:]))
+        namespace = app_namespace.get(path.stem, "")
+        level = levels.get(namespace)
+        if level is None:
+            print(f"  ::error::namespace '{namespace}' of {path.stem} has no Pod Security level in namespaces.yaml")
+            status = 1
+        elif level != "privileged":
+            policy = work / f"_pss-{level}.yaml"
+            policy.write_text(PSS_POLICY.format(level=level))
+            pss = subprocess.run([kyverno, "apply", str(policy), "--resource", str(target)],
+                                 capture_output=True, text=True, check=False)
+            if pss.returncode != 0:
+                status = 1
+                text = pss.stdout + pss.stderr
+                names = sorted(set(re.findall(r"-> resource \S+?/(\w+/\S+) failed", text)))
+                print(f"  Pod Security '{level}' in namespace {namespace} would refuse: {', '.join(names) or '?'}")
+                for line in sorted(set(re.findall(r"(?:Control|restricted field|field).*", text)))[:8]:
+                    print(f"    {line.strip()[:220]}")
     return status
 
 
