@@ -7,6 +7,7 @@ from typing import Any
 
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+from langchain.agents.middleware import TodoListMiddleware
 from langchain_core.language_models import BaseChatModel
 
 from .models import model_for
@@ -55,6 +56,8 @@ def build_agent(model: BaseChatModel | None = None, subagent_model: BaseChatMode
             default=StateBackend(),
             routes={"/memories/": StoreBackend(namespace=memory_namespace)},
         ),
+        # Planning is opt-in since Deep Agents 0.7; the workbench renders the plan from the `todos` state.
+        middleware=[TodoListMiddleware()],
         interrupt_on=APPROVAL_REQUIRED,
         name="innovox-task-agent",
         **kwargs,
