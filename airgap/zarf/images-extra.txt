@@ -3,3 +3,5 @@
 quay.io/keycloak/keycloak-operator:26.8.2   # installed from the keycloak-k8s-resources git source
 quay.io/keycloak/keycloak:26.8.2            # started by the Keycloak operator
 registry.istio.io/release/proxyv2:1.30.8    # injected sidecars and the ingress gateway (image "auto")
+quay.io/prometheus-operator/prometheus-config-reloader:v0.95.2  # set by the Prometheus operator on its pods
+# Still to list from a running B1 cluster: Ceph CSI driver and sidecar images, which the Rook operator chooses.

@@ -17,6 +17,10 @@ spec:
     helm:
       releaseName: local-path-provisioner
       valuesObject:
+        # The chart's helper image is busybox:latest, which the admission policy refuses (floating tag).
+        helperImage:
+          repository: docker.io/rancher/mirrored-library-busybox
+          tag: 1.36.1
         storageClass:
           create: false
         nodePathMap:

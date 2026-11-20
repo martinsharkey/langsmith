@@ -51,4 +51,5 @@ components:
   images:
   - quay.io/keycloak/keycloak-operator:26.8.2
   - quay.io/keycloak/keycloak:26.8.2
+  - quay.io/prometheus-operator/prometheus-config-reloader:v0.95.2
   - registry.istio.io/release/proxyv2:1.30.8
