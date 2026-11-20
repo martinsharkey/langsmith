@@ -32,7 +32,8 @@ Check: `kubectl get nodes` all Ready; Cilium healthy (`kubectl -n kube-system ge
 ## 3. Argo CD and the platform
 
 ```bash
-helm install argocd argo-cd --repo https://argoproj.github.io/argo-helm --version 10.18.0 -n argocd --create-namespace
+helm install argocd argo-cd --repo https://argoproj.github.io/argo-helm --version 10.18.0 -n argocd --create-namespace \
+  -f platform/values/argocd/values.yaml
 kubectl apply -f platform/argocd/project.yaml -f platform/argocd/root-b1.yaml
 ```
 Argo CD syncs in waves: namespaces and CA (0), operators (1), storage, registry and policies (2), data, identity,

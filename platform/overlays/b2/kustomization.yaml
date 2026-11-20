@@ -5,6 +5,9 @@ kind: Kustomization
 resources:
   - ../../apps
   - mode-policies.yaml
+components:
+  # Generated: every Helm source as an OCI chart in the enclave registry (scripts/gen_airgap.py).
+  - oci-charts
 patches:
   - target:
       kind: Application

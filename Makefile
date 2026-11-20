@@ -2,7 +2,7 @@
 SCHEMAS ?= -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 K8S_VERSION ?= 1.37.2
 
-.PHONY: validate lint secrets schemas policies iac unit tekton zarf-images zarf-package
+.PHONY: validate lint secrets schemas policies iac unit tekton airgap zarf-package
 
 validate: lint secrets schemas policies iac unit
 
@@ -34,8 +34,14 @@ tekton:
 	kubectl apply -f https://github.com/tektoncd/chains/releases/download/v0.30.0/release.yaml
 	kubectl apply -f platform/manifests/tekton/chains-config.yaml
 
-zarf-images:
-	zarf dev find-images airgap/zarf --update
+# Regenerates the enclave overlay, chart list and Zarf package definitions from platform/apps. Needs helm.
+airgap:
+	scripts/render_charts.py b2 out/rendered-b2
+	scripts/gen_airgap.py --rendered out/rendered-b2
 
+# Connected side: copy the pinned charts into an OCI registry, then build both packages from it.
 zarf-package:
-	zarf package create airgap/zarf --confirm --output out/
+	test -n "$(CHART_REGISTRY)" || (echo "set CHART_REGISTRY=<registry[/project]>"; exit 1)
+	airgap/push-charts.sh $(CHART_REGISTRY)
+	zarf package create airgap/zarf --set CHART_REGISTRY=$(CHART_REGISTRY) --confirm --output out/
+	zarf package create airgap/zarf-langsmith --set CHART_REGISTRY=$(CHART_REGISTRY) --confirm --output out/

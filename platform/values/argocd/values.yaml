@@ -1,0 +1,4 @@
+# Argo CD (Apache-2.0). Installed before Argo CD exists: by helm in B1 (docs/runbooks/install-b1.md) and by Zarf
+# in B2 (airgap/zarf). Sign-in is OIDC straight to Keycloak, so the bundled Dex is not deployed.
+dex:
+  enabled: false

@@ -36,6 +36,8 @@ spec:
                       - "quay.io/keycloak/*"
                       - "quay.io/jetstack/*"
                       - "quay.io/argoproj/*"
+                      # Argo CD's own cache, as its chart ships it (Redis 8, AGPL-3.0). Used by Argo CD only.
+                      - "ecr-public.aws.com/docker/library/redis:*"
                       - "quay.io/prometheus/*"
                       - "quay.io/prometheus-operator/*"
                       - "quay.io/openbao/*"
@@ -56,6 +58,8 @@ spec:
                       - "ghcr.io/jkroepke/kube-webhook-certgen:*"
                       - "quay.io/kiwigrid/k8s-sidecar:*"
                       - "docker.io/postgres:*"
+                      # Per-deployment store started by the LangGraph operator for each agent deployment.
+                      - "docker.io/pgvector/pgvector:*"
                       - "harbor.site.example/innovox/*"
                       # Istio's gateway chart ships the placeholder image "auto"; the sidecar injector replaces it,
                       # and the injected Pod is checked again against this list.

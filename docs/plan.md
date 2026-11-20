@@ -6,7 +6,7 @@ workstream (more where a stream is large). Status is updated in the pull request
 | ID | Workstream | Outcome | Status |
 | --- | --- | --- | --- |
 | W1 | Render every chart in CI and policy-check the output | Bad values and policy conflicts found before deployment | Done (findings below) |
-| W2 | Close known repository gaps | Kyverno policy migration, enclave OCI overlay, Zarf image lists, OpenTelemetry Collector, Dependency-Track, Valkey HA, SmithDB through the mesh | Not started |
+| W2 | Close known repository gaps | Kyverno policy migration, enclave OCI overlay, Zarf image lists, OpenTelemetry Collector, Dependency-Track, Valkey HA, SmithDB through the mesh | In progress: enclave overlay, Zarf packages and image lists done (findings below); policy migration, OpenTelemetry Collector, Dependency-Track and Valkey HA remain |
 | W3 | Template deep agent | Custom auth, per-user store auth, gateway model classes, approval step, tests, `langgraph.json` | Done |
 | W4 | Workbench | Next.js back end for front end on `useStream`: chat, plan, subagents, approvals, files | Done |
 | W5 | End-to-end test in CI | Workbench to agent to stub model, browser-driven, with a real Keycloak | Done (issue 24 closed) |
@@ -25,6 +25,18 @@ workstream (more where a stream is large). Status is updated in the pull request
 | The Istio gateway's pod template has no seccomp profile before injection | Namespace set to `baseline` until the injected pod is checked at E1 |
 | Kyverno chart 3.9.2 ships Kyverno v1.19.2, not v1.20.0 | `versions.yaml` corrected |
 | Grafana in kube-prometheus-stack is 13.3.1 | Meets LangChain's 13+ requirement for its dashboards |
+
+## W2 findings (fixed in the same pull request)
+
+Found by rendering Argo CD itself and by listing every image the enclave must carry.
+
+| Finding | Effect if deployed | Fix |
+| --- | --- | --- |
+| Argo CD's Dex and Redis images were not on the admission allowlist, and its namespace had no Pod Security level | Argo CD pods refused once Kyverno enforces | Dex disabled (sign-in is OIDC to Keycloak); Redis image allowed; namespace set to `restricted` |
+| The LangGraph operator starts a `redis:7` and an unqualified `pgvector/pgvector:pg15` pod for every agent deployment | Every agent deployment's stores refused at admission; Redis 7 is source-available, against AD-52; neither image would be in the enclave | Operator templates overridden, as LangChain documents: Valkey, and pgvector with its registry |
+| The local-path provisioner's helper image was `busybox:latest` | Volume provisioning refused (floating tag) | Pinned Rancher mirror image |
+| Argo CD Helm sources named upstream repositories in the enclave overlay | Nothing could sync in a disconnected enclave | Generated OCI chart sources, following Zarf's Argo CD pattern |
+| The Zarf package had Zarf install charts that Argo CD also manages, and no image list | Two owners for each release; missing images | One generated package definition: Zarf installs only Argo CD and carries everything else |
 
 ## What this plan cannot prove
 

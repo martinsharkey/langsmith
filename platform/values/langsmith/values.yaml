@@ -96,3 +96,89 @@ images:
   redisImage:
     repository: docker.io/valkey/valkey
     tag: "9.1.3"
+
+operator:
+  # The operator starts a Redis and a PostgreSQL (pgvector) pod for each agent deployment from these templates.
+  # LangChain documents overriding them to change the images (self-host-mirroring-images). They are the chart's
+  # own templates at 0.17.51 with two changes: Redis 7 (source-available from 7.4, refused by AD-52) becomes
+  # Valkey, and the pgvector image is given its registry so the admission allowlist and the enclave mirror can
+  # name it. Re-copy from the chart on every LangSmith upgrade. To be proven at E1 (issues 11 and 14).
+  templates:
+    redis: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ${service_name}
+        namespace: ${namespace}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: ${service_name}
+        template:
+          metadata:
+            labels:
+              app: ${service_name}
+          spec:
+            enableServiceLinks: false
+            containers:
+            - name: redis
+              image: docker.io/valkey/valkey:9.1.3
+              ports:
+              - containerPort: 6379
+                name: redis
+              livenessProbe:
+                exec:
+                  command:
+                  - valkey-cli
+                  - ping
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                tcpSocket:
+                  port: 6379
+                initialDelaySeconds: 10
+                periodSeconds: 5
+    db: |
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: ${service_name}
+      spec:
+        serviceName: ${service_name}
+        selector:
+          matchLabels:
+            app: ${service_name}
+        persistentVolumeClaimRetentionPolicy:
+          whenDeleted: Delete
+          whenScaled: Retain
+        template:
+          metadata:
+            labels:
+              app: ${service_name}
+          spec:
+            containers:
+            - name: postgres
+              image: docker.io/pgvector/pgvector:pg15
+              ports:
+              - containerPort: 5432
+              command: ["docker-entrypoint.sh"]
+              args:
+                - postgres
+                - -c
+                - max_connections=${max_connections}
+              env:
+              - name: PGDATA
+                value: /var/lib/postgresql/data/pgdata
+              volumeMounts:
+              - name: postgres-data
+                mountPath: /var/lib/postgresql/data
+            enableServiceLinks: false
+        volumeClaimTemplates:
+        - metadata:
+            name: postgres-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: "${storage_gi}Gi"

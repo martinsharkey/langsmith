@@ -30,8 +30,6 @@
 | OpenSearch HTTP certificates issued by the platform CA (Fluent Bit already verifies against `opensearch-ca`) | 2 |
 | Dependency-Track deployment for SBOM and ML-BOM analysis | 2 |
 | Valkey high availability (currently one replica with persistence) | 2 |
-| B2 overlay pointing Argo CD Helm sources at the enclave registry's OCI charts | 3 |
-| Zarf image lists generated with `make zarf-images` | 3 |
 | Migrate Kyverno `ClusterPolicy` (deprecated) to `ValidatingPolicy` / `ImageValidatingPolicy` | 3 |
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |
 | Workbench: Valkey-backed session store for more than one replica; npm lockfile; container image and Argo CD application | 2 |
@@ -40,6 +38,7 @@
 | OpenTelemetry Collector for SmithDB OTLP traces | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
 | Mirrored package index for agent builds in the enclave (D-12) | 3 |
+| Images that operators pull at run time (Ceph CSI and others) listed from a running B1 cluster into `airgap/zarf/images-extra.txt` | 3 |
 
 Open work that needs a deployment is tracked as GitHub issues; see the table in `docs/plan.md` and
 [issue 25](https://github.com/martinsharkey/langsmith/issues/25).

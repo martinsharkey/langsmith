@@ -28,13 +28,31 @@ def main() -> int:
         print(built.stderr, file=sys.stderr)
         return 1
     failures, summary, namespaces = [], [], {}
-    for app in yaml.safe_load_all(built.stdout):
-        if not app or app.get("kind") != "Application":
-            continue
+    # The enclave overlay names charts as OCI artefacts on a placeholder host (scripts/gen_airgap.py). CI renders
+    # them from the upstream repository named in platform/apps, which is where the carried-in copy comes from.
+    upstream = {}
+    for path in sorted((ROOT / "platform" / "apps").glob("*.yaml")):
+        for doc in yaml.safe_load_all(path.read_text()):
+            if doc and doc.get("kind") == "Application":
+                upstream[doc["metadata"]["name"]] = doc["spec"].get("sources") or [doc["spec"]["source"]]
+    apps = [a for a in yaml.safe_load_all(built.stdout) if a and a.get("kind") == "Application"]
+    # Argo CD itself is installed before Argo CD exists (helm in B1, Zarf in B2); render it so its images are
+    # policy-checked and carried in like the rest.
+    versions = yaml.safe_load((ROOT / "versions.yaml").read_text())
+    apps.append({"metadata": {"name": "argo-cd"}, "spec": {
+        "destination": {"namespace": "argocd"},
+        "source": {"repoURL": "https://argoproj.github.io/argo-helm", "chart": "argo-cd",
+                   "targetRevision": versions["gitops"]["argo-cd-chart"],
+                   "helm": {"releaseName": "argocd", "valueFiles": ["$values/platform/values/argocd/values.yaml"]}}}})
+    for app in apps:
         name = app["metadata"]["name"]
         spec = app["spec"]
         namespace = spec["destination"].get("namespace", "default")
-        for src in spec.get("sources") or [spec["source"]]:
+        for index, src in enumerate(spec.get("sources") or [spec["source"]]):
+            if src["repoURL"].startswith("oci://chart-registry.invalid/"):
+                original = upstream[name][index]
+                src = {**src, "repoURL": original["repoURL"], "chart": original["chart"]}
+                src.pop("path", None)
             helm = src.get("helm")
             if "chart" not in src and not (helm and "path" in src):
                 continue  # plain manifests are validated by the schemas job

@@ -99,10 +99,32 @@ jobs:
         run: |
           curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
           scripts/check_rendered_policies.py out/rendered-b1
-      - name: list images
-        if: always()
+      - name: enclave overlay and Zarf packages match the applications (scripts/gen_airgap.py)
         run: |
-          grep -rhoE '^\s*image: .*' out/rendered-b1/*.yaml | sed -E 's/^\s*image: //; s/"//g' | sort -u
+          scripts/gen_airgap.py --rendered out/rendered-b2
+          if ! git diff --exit-code -- platform/overlays/b2 airgap; then
+            for f in airgap/zarf/images-platform.txt airgap/zarf/images-langsmith.txt; do echo "::group::$f"; cat "$f"; echo "::endgroup::"; done
+            echo "::error::Generated air-gap files are out of date. Run 'make airgap' and commit the result."
+            exit 1
+          fi
+      - name: the enclave overlay reaches nothing outside the enclave
+        run: |
+          kubectl kustomize platform/overlays/b2 > /tmp/b2.yaml
+          python3 - <<'EOF'
+          import sys, yaml
+          bad = []
+          for app in yaml.safe_load_all(open("/tmp/b2.yaml")):
+              if not app or app.get("kind") != "Application":
+                  continue
+              spec = app["spec"]
+              for src in spec.get("sources") or [spec["source"]]:
+                  url = src["repoURL"]
+                  carried = url.startswith("oci://chart-registry.invalid/charts/") or url.endswith(".git")
+                  if not carried or "chart" in src:
+                      bad.append(f"{app['metadata']['name']}: {url}")
+          print("\n".join(bad) or "every source is an OCI chart or a mirrored git repository")
+          sys.exit(1 if bad else 0)
+          EOF
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with:
