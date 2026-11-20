@@ -11,7 +11,7 @@ workstream (more where a stream is large). Status is updated in the pull request
 | W4 | Workbench | Next.js back end for front end on `useStream`: chat, plan, subagents, approvals, files | Done |
 | W5 | End-to-end test in CI | Workbench to agent to stub model, browser-driven, with a real Keycloak | Done (issue 24 closed) |
 | W6 | Agent release pipeline | `langgraph build`, signature, SBOM, evaluations | Done to the limit of CI: build, SBOM, scan, evaluations, signed release workflow. Deployment through the control plane is issue 14 |
-| W7 | Assurance paperwork | Threat model, risk register, CAF first pass, catalogue and annex aligned to v2.0 | Threat model, risk register and CAF first pass done (`docs/assurance`). Catalogue and annex alignment remain |
+| W7 | Assurance paperwork | Threat model, risk register, CAF first pass, catalogue and annex aligned to v2.0 | Done: threat model, risk register and CAF first pass (`docs/assurance`); Catalogue v0.8, annex v0.3 and architecture v2.1 aligned |
 
 ## W1 findings (all fixed in the same pull request)
 

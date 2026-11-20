@@ -1,6 +1,6 @@
 # Solution architecture
 
-This page is the repository view of **DP-AI-001 Sovereign Agentic Platform Solution Architecture v2.0**. The full
+This page is the repository view of **DP-AI-001 Sovereign Agentic Platform Solution Architecture v2.1**. The full
 document, with narrative for every figure, decisions and risks, is the Innovox design document; the assurance annex
 (standards, control catalogue, test strategy) is DP-AI-001-C. Facts about LangChain components come from LangChain's
 documentation, cited inline.
@@ -141,6 +141,9 @@ sequenceDiagram
   S--)L: traces of every step
 ```
 
+For every agent deployment the LangGraph operator also starts a Valkey pod and a PostgreSQL (pgvector) pod, from the
+operator templates in the chart values (AD-60). MCP tools reach a model only through the deployment's allowlist (AD-62).
+
 Other patterns: other agents call platform agents over A2A at `/a2a/{assistant_id}`
 ([A2A](https://docs.langchain.com/langsmith/server-a2a)); any MCP client can call an assistant as a tool at `/mcp`
 ([MCP](https://docs.langchain.com/langsmith/server-mcp)); tools act for a user with Agent Auth; cron jobs and run
@@ -211,5 +214,10 @@ B1 and B2 use the same layout; B2 has no egress, an offline licence and software
 | Nodes and Kubernetes | `infra/opentofu/nutanix/`, `infra/rke2/` |
 | Model intake gate | `model-intake/` |
 | Red team and E2 tests | `redteam/`, `tests/` |
+| Template agent, MCP allowlist, release evaluations | `agents/template/` |
+| Workbench | `workbench/` |
+| End-to-end browser test | `e2e/` |
+| Enclave packaging, generated | `airgap/`, `scripts/gen_airgap.py` |
+| Threat model, risk register, CAF first pass | `docs/assurance/` |
 | Decisions | `docs/adr/` |
 | Controls | `docs/controls.yaml` |
