@@ -1,7 +1,10 @@
 {
-  "dependencies": ["."],
+  "dependencies": [
+    "."
+  ],
   "graphs": {
-    "agent": "./src/innovox_agent/agent.py:agent"
+    "agent": "./src/innovox_agent/agent.py:make_agent",
+    "analyst": "./src/innovox_agent/analyst.py:analyst"
   },
   "auth": {
     "path": "./src/innovox_agent/auth.py:auth",

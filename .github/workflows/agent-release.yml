@@ -1,0 +1,61 @@
+# Agent release lane (docs/sdlc.md, lane "Agents"). Builds the template agent's Agent Server image, scans it, and
+# publishes it signed with its SBOM attached. Runs only on a release tag or by hand; gate PR (ci.yml) has already
+# run the unit tests, release evaluations, image build and scan on the same commit.
+#
+# Connected sites pull the signed image into Harbor. For the enclave it is added to a Zarf package and carried in.
+# On a platform, the same steps run in Tekton, where Tekton Chains signs with the platform key (AD-47).
+name: agent-release
+
+on:
+  push:
+    tags: ["agent-template-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TRIVY_VERSION: 0.76.2
+  COSIGN_VERSION: v3.1.4
+  IMAGE: ghcr.io/${{ github.repository }}/agent-template
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # keyless signing with the workflow's identity
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: tools
+        run: |
+          pip install "langgraph-cli>=0.4"
+          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar xz trivy
+          curl -sSL -o cosign "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          chmod +x cosign
+      - name: build
+        run: |
+          version="${GITHUB_REF_NAME#agent-template-v}"
+          case "$GITHUB_REF_TYPE" in tag) ;; *) version="0.0.0-${GITHUB_SHA::12}" ;; esac
+          echo "TAG=${IMAGE,,}:${version}" >> "$GITHUB_ENV"
+          cd agents/template && langgraph build -t "${IMAGE,,}:${version}"
+      - name: scan (no critical vulnerability with a fix available) and SBOM
+        run: |
+          ./trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 "$TAG"
+          ./trivy image --format cyclonedx --output agent-sbom.cdx.json "$TAG"
+      - name: push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$TAG"
+          echo "DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")" >> "$GITHUB_ENV"
+      - name: sign and attach the SBOM
+        run: |
+          ./cosign sign --yes "$DIGEST"
+          ./cosign attest --yes --type cyclonedx --predicate agent-sbom.cdx.json "$DIGEST"
+          echo "Published $DIGEST" >> "$GITHUB_STEP_SUMMARY"

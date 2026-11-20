@@ -28,6 +28,8 @@ jobs:
           python-version: "3.12"
       - run: pip install yamllint==1.38.0
       - run: yamllint -s .
+      - name: assurance records agree with the repository
+        run: python scripts/check_assurance.py
       - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh e2e/*.sh
 
   secrets:
@@ -146,8 +148,49 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[test]"
-      - run: pip freeze | grep -iE "deepagents|langchain|langgraph|pyjwt"
+      - run: pip freeze | grep -iE "deepagents|langchain|langgraph|pyjwt|mcp"
       - run: pytest -q
+      - name: release evaluations against the stub model (thresholds in evals/thresholds.json)
+        env:
+          LANGSMITH_TRACING: "false"
+          LANGSMITH_GATEWAY: http://127.0.0.1:9000/v1
+          LANGSMITH_GATEWAY_API_KEY: ci
+        run: |
+          pip install -e ".[evals]"
+          python ../../e2e/stub_model.py 9000 &
+          for _ in $(seq 1 20); do curl -fsS -o /dev/null http://127.0.0.1:9000/health && break; sleep 1; done
+          python evals/run.py
+
+  agent-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: build the Agent Server image (langgraph build)
+        run: |
+          pip install "langgraph-cli>=0.4"
+          cd agents/template && langgraph build -t innovox-agent-template:ci
+      - name: image runs as built (entrypoint and graphs present)
+        run: |
+          docker image inspect innovox-agent-template:ci --format '{{.Size}} bytes, user={{.Config.User}}'
+          docker run --rm --entrypoint python innovox-agent-template:ci -c "import innovox_agent.agent, innovox_agent.analyst, innovox_agent.auth; print('graphs import')"
+      - name: SBOM (CycloneDX) and vulnerability scan
+        run: |
+          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar xz trivy
+          ./trivy image --format cyclonedx --output agent-sbom.cdx.json innovox-agent-template:ci
+          ./trivy image --severity CRITICAL,HIGH --ignore-unfixed --format table --output agent-vulns.txt innovox-agent-template:ci
+          tail -n 40 agent-vulns.txt
+          ./trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 --quiet innovox-agent-template:ci
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: agent-image-evidence
+          path: |
+            agent-sbom.cdx.json
+            agent-vulns.txt
+          retention-days: 14
 
   workbench:
     runs-on: ubuntu-latest
@@ -180,7 +223,7 @@ jobs:
           node-version: "22"
       - name: install agent, workbench and test runner
         run: |
-          pip install -e "agents/template[dev]"
+          pip install -e "agents/template[dev]" -r mcp-servers/reference/requirements.txt
           (cd workbench && npm install --no-audit --no-fund && NEXT_TELEMETRY_DISABLED=1 npm run build)
           (cd e2e && npm install --no-audit --no-fund && npx playwright install --with-deps chromium)
       - name: start the stack

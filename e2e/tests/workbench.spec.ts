@@ -59,6 +59,23 @@ test("a rejected publication never runs", async ({ page }) => {
   await expect(page.getByTestId("messages")).not.toContainText("Published 'Design'");
 });
 
+test("the agent uses a tool from the MCP server, and only the allowlisted one", async ({ page }) => {
+  await signIn(page, "alice");
+  await send(page, "Look up decision AD-59");
+  await expect(page.getByTestId("msg-ai").last()).toContainText("source: reference MCP server");
+});
+
+test("a background task runs on its own thread and reports back", async ({ page }) => {
+  await signIn(page, "alice");
+  await send(page, "Run the analysis in the background");
+  const tasks = page.getByTestId("background-tasks");
+  await expect(tasks).toContainText("analyst");
+  await expect(page.getByTestId("messages")).toContainText("Launched async subagent");
+  await expect(tasks.locator("li")).toHaveAttribute("data-status", "success", { timeout: 60_000 });
+  await expect(page.getByTestId("messages")).toContainText("The background analysis has finished.");
+  await expect(page.getByTestId("msg-human")).toHaveCount(1); // the task's report is not shown as a user message
+});
+
 test("one user cannot read another user's thread", async ({ browser }) => {
   const alice = await browser.newContext();
   const alicePage = await alice.newPage();

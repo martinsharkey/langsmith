@@ -3,13 +3,16 @@ pauses for approval before any external action. Deployed to Agent Server through
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langchain.agents.middleware import TodoListMiddleware
 from langchain_core.language_models import BaseChatModel
+from langchain_core.runnables import RunnableConfig
 
+from innovox_agent.mcp_tools import load_mcp_tools
 from innovox_agent.models import model_for
 from innovox_agent.settings import load
 from innovox_agent.tools import APPROVAL_REQUIRED, TOOLS, search_documents
@@ -21,7 +24,9 @@ SYSTEM_PROMPT = """You are an Innovox task agent. Work methodically:
 3. Write drafts to files, not into the conversation.
 4. You have persistent memory at /memories/. Read /memories/preferences.md at the start of a task if it exists,
    and record lasting user preferences there.
-5. `publish_document` sends work outside the platform. Call it only when the user has asked for publication;
+5. For long analysis the user should not wait for, start the `analyst` background task and carry on; you will be
+   told when it finishes.
+6. `publish_document` sends work outside the platform. Call it only when the user has asked for publication;
    a person will be asked to approve it.
 """
 
@@ -37,11 +42,17 @@ def memory_namespace(runtime: Any) -> tuple[str, ...]:
     return (str(assistant or "local"), str(user or "anonymous"), "memories")
 
 
-def build_agent(model: BaseChatModel | None = None, subagent_model: BaseChatModel | None = None, **kwargs: Any):
+def build_agent(
+    model: BaseChatModel | None = None,
+    subagent_model: BaseChatModel | None = None,
+    extra_tools: Sequence[Any] = (),
+    **kwargs: Any,
+):
+    """`extra_tools` are the allowlisted MCP tools, loaded by `make_agent` when the server builds the graph."""
     cfg = load()
     return create_deep_agent(
         model=model or model_for(cfg.model_class),
-        tools=TOOLS,
+        tools=[*TOOLS, *extra_tools],
         system_prompt=SYSTEM_PROMPT,
         subagents=[
             {
@@ -50,7 +61,13 @@ def build_agent(model: BaseChatModel | None = None, subagent_model: BaseChatMode
                 "system_prompt": RESEARCHER_PROMPT,
                 "tools": [search_documents],
                 "model": subagent_model or model or model_for(cfg.subagent_model_class),
-            }
+            },
+            # An async subagent: the `analyst` graph in this deployment (langgraph.json), reached in-process.
+            {
+                "name": "analyst",
+                "description": "Runs a longer analysis in the background and reports back when it is finished.",
+                "graph_id": "analyst",
+            },
         ],
         backend=CompositeBackend(
             default=StateBackend(),
@@ -64,4 +81,7 @@ def build_agent(model: BaseChatModel | None = None, subagent_model: BaseChatMode
     )
 
 
-agent = build_agent()
+async def make_agent(config: RunnableConfig):
+    """Graph factory named in langgraph.json. Agent Server calls it when it needs the graph, which lets the agent
+    pick up its MCP tools (an async call) before it is built."""
+    return build_agent(extra_tools=await load_mcp_tools())
