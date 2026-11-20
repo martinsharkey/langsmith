@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - cert-manager.yaml
   - cloudnative-pg.yaml
+  - dependency-track.yaml
   - external-secrets.yaml
   - falco.yaml
   - fluent-bit.yaml
@@ -21,6 +22,7 @@ resources:
   - openbao.yaml
   - opensearch-dashboards.yaml
   - opensearch.yaml
+  - otel-collector.yaml
   - platform-base.yaml
   - platform-data.yaml
   - platform-identity.yaml
@@ -28,5 +30,6 @@ resources:
   - platform-secrets.yaml
   - platform-security.yaml
   - platform-storage.yaml
+  - platform-supply-chain.yaml
   - rook-ceph.yaml
   - trust-manager.yaml

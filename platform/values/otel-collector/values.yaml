@@ -1,0 +1,80 @@
+# Gateway collector for LangSmith's own service traces. Logs go through Fluent Bit and metrics through Prometheus,
+# so only the traces pipeline is defined; the chart's default Jaeger, Zipkin and Prometheus receivers are removed.
+mode: deployment
+fullnameOverride: otel-collector
+replicaCount: 2
+image:
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+presets:
+  kubernetesAttributes:
+    enabled: true
+ports:
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+extraEnvs:
+  - name: OPENSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin
+        key: password
+extraVolumes:
+  - name: opensearch-ca
+    secret:
+      secretName: opensearch-ca
+extraVolumeMounts:
+  - name: opensearch-ca
+    mountPath: /etc/otel/tls
+    readOnly: true
+config:
+  extensions:
+    basicauth/opensearch:
+      client_auth:
+        username: admin
+        password: ${env:OPENSEARCH_PASSWORD}
+  receivers:
+    jaeger: null
+    zipkin: null
+    prometheus: null
+  exporters:
+    debug: null
+    opensearch:
+      http:
+        endpoint: https://opensearch-cluster-master.observability.svc:9200
+        tls:
+          ca_file: /etc/otel/tls/ca.crt
+        auth:
+          authenticator: basicauth/opensearch
+  service:
+    extensions:
+      - health_check
+      - basicauth/opensearch
+    pipelines:
+      logs: null
+      metrics: null
+      traces:
+        receivers: [otlp]
+        # The kubernetesAttributes preset adds the k8sattributes processor to this pipeline.
+        processors: [memory_limiter, batch]
+        exporters: [opensearch]

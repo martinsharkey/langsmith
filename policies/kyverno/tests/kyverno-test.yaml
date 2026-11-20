@@ -10,37 +10,32 @@ resources:
   - resources.yaml
 results:
   - policy: restrict-image-sources
-    rule: approved-sources
-    resources: [good-langsmith, good-model]
+    isValidatingPolicy: true
+    resources: [good-langsmith, good-model, good-registry-port]
     kind: Pod
     result: pass
   - policy: restrict-image-sources
-    rule: approved-sources
-    resources: [bad-unknown-source]
+    isValidatingPolicy: true
+    resources: [bad-unknown-source, bad-lookalike-source]
     kind: Pod
     result: fail
   - policy: disallow-latest-tag
-    rule: require-image-tag
-    resources: [good-langsmith]
+    isValidatingPolicy: true
+    resources: [good-langsmith, good-registry-port]
     kind: Pod
     result: pass
   - policy: disallow-latest-tag
-    rule: require-image-tag
-    resources: [bad-untagged]
-    kind: Pod
-    result: fail
-  - policy: disallow-latest-tag
-    rule: disallow-latest
-    resources: [bad-latest]
+    isValidatingPolicy: true
+    resources: [bad-untagged, bad-latest, bad-untagged-registry-port]
     kind: Pod
     result: fail
   - policy: require-model-intake-record
-    rule: intake-record-present
+    isValidatingPolicy: true
     resources: [good-model]
     kind: Pod
     result: pass
   - policy: require-model-intake-record
-    rule: intake-record-present
-    resources: [bad-model-no-record]
+    isValidatingPolicy: true
+    resources: [bad-model-no-record, bad-model-missing-annotation]
     kind: Pod
     result: fail

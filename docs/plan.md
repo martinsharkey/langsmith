@@ -6,7 +6,7 @@ workstream (more where a stream is large). Status is updated in the pull request
 | ID | Workstream | Outcome | Status |
 | --- | --- | --- | --- |
 | W1 | Render every chart in CI and policy-check the output | Bad values and policy conflicts found before deployment | Done (findings below) |
-| W2 | Close known repository gaps | Kyverno policy migration, enclave OCI overlay, Zarf image lists, OpenTelemetry Collector, Dependency-Track, Valkey HA, SmithDB through the mesh | In progress: enclave overlay, Zarf packages and image lists done (findings below); policy migration, OpenTelemetry Collector, Dependency-Track and Valkey HA remain |
+| W2 | Close known repository gaps | Kyverno policy migration, enclave OCI overlay, Zarf image lists, OpenTelemetry Collector, Dependency-Track, Valkey HA, SmithDB through the mesh | Done, except Valkey high availability (waits on issue 11) and SmithDB through the mesh (issue 10) |
 | W3 | Template deep agent | Custom auth, per-user store auth, gateway model classes, approval step, tests, `langgraph.json` | Done |
 | W4 | Workbench | Next.js back end for front end on `useStream`: chat, plan, subagents, approvals, files | Done |
 | W5 | End-to-end test in CI | Workbench to agent to stub model, browser-driven, with a real Keycloak | Done (issue 24 closed) |
@@ -36,6 +36,7 @@ Found by rendering Argo CD itself and by listing every image the enclave must ca
 | The LangGraph operator starts a `redis:7` and an unqualified `pgvector/pgvector:pg15` pod for every agent deployment | Every agent deployment's stores refused at admission; Redis 7 is source-available, against AD-52; neither image would be in the enclave | Operator templates overridden, as LangChain documents: Valkey, and pgvector with its registry |
 | The local-path provisioner's helper image was `busybox:latest` | Volume provisioning refused (floating tag) | Pinned Rancher mirror image |
 | Argo CD Helm sources named upstream repositories in the enclave overlay | Nothing could sync in a disconnected enclave | Generated OCI chart sources, following Zarf's Argo CD pattern |
+| Admission policies used Kyverno's deprecated `ClusterPolicy` | Policies would stop working at a future Kyverno upgrade | Rewritten as `ValidatingPolicy` and `ImageValidatingPolicy`; tests extended from 8 to 13, including a look-alike registry path |
 | The Zarf package had Zarf install charts that Argo CD also manages, and no image list | Two owners for each release; missing images | One generated package definition: Zarf installs only Argo CD and carries everything else |
 
 ## What this plan cannot prove

@@ -32,7 +32,7 @@ four gates below.
 | PO.3 Implement supporting toolchains | `.github/workflows/ci.yml`, `Makefile`, Tekton pipelines |
 | PO.5 Secure environments | Separate installations per environment; no shared credentials |
 | PS.1 Protect code | Branch protection, CODEOWNERS, signed commits recommended |
-| PS.2 Verify integrity | cosign signatures, Kyverno `verifyImages`, model signature check in `model-intake/` |
+| PS.2 Verify integrity | cosign signatures, Kyverno `ImageValidatingPolicy`, model signature check in `model-intake/` |
 | PS.3 Archive and protect releases | Tagged releases; SBOMs and provenance in Object Lock storage |
 | PW.4 Reuse well-secured software | Pinned versions (`versions.yaml`), Renovate with a 14-day release age |
 | PW.7 / PW.8 Review and test | Pull request review; policy tests; unit tests; red teaming |

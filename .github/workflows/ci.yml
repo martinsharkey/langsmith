@@ -99,6 +99,21 @@ jobs:
         run: |
           curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
           scripts/check_rendered_policies.py out/rendered-b1
+      - name: the collector accepts its configuration
+        run: |
+          python3 - <<'EOF'
+          import yaml
+          for doc in yaml.safe_load_all(open("out/rendered-b1/otel-collector.yaml")):
+              if doc and doc.get("kind") == "ConfigMap" and "relay" in (doc.get("data") or {}):
+                  open("/tmp/otel-config.yaml", "w").write(doc["data"]["relay"])
+              if doc and doc.get("kind") == "Deployment":
+                  open("/tmp/otel-image", "w").write(doc["spec"]["template"]["spec"]["containers"][0]["image"])
+          EOF
+          grep -A12 'pipelines:' /tmp/otel-config.yaml
+          touch /tmp/ca.crt
+          docker run --rm -e MY_POD_IP=127.0.0.1 -e OPENSEARCH_PASSWORD=ci -e K8S_NODE_NAME=ci \
+            -v /tmp/otel-config.yaml:/conf/relay.yaml:ro -v /tmp/ca.crt:/etc/otel/tls/ca.crt:ro \
+            "$(cat /tmp/otel-image)" validate --config=/conf/relay.yaml
       - name: enclave overlay and Zarf packages match the applications (scripts/gen_airgap.py)
         run: |
           scripts/gen_airgap.py --rendered out/rendered-b2
