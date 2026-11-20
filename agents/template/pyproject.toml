@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "innovox-agent-template"
+version = "0.1.0"
+description = "Template deep agent for the Innovox sovereign agentic platform (AD-57, AD-59)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "deepagents>=0.7.41,<0.8",
+    "langchain>=1.5.2,<2",
+    "langchain-openai>=1.0,<2",
+    "langgraph>=1.2.24,<2",
+    "langgraph-sdk>=0.3",
+    "pyjwt[crypto]>=2.10,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.25"]
+dev = ["langgraph-cli[inmem]>=0.4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -36,5 +36,4 @@
 | Import LangChain's dashboard bundle into Grafana (chart ships Grafana 13.3.1, confirmed by CI render) | 2 |
 | OpenTelemetry Collector for SmithDB OTLP traces | 2 |
 | Prove Keycloak SSO and group-to-role sync with LangSmith (R-31); Rook-Ceph S3 for blobs and SmithDB (R-30) | 2 |
-| Agent template: deep agent with custom auth, store auth and gateway model classes (AD-57, AD-59) | 2 |
 | Mirrored package index for agent builds in the enclave (D-12) | 3 |
