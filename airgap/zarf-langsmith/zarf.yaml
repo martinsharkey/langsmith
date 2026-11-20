@@ -10,3 +10,10 @@ components:
   required: true
   images:
   - '###ZARF_PKG_TMPL_CHART_REGISTRY###/charts/langsmith:0.17.51'
+  - docker.io/langchain/langgraph-operator:0.1.66
+  - docker.io/langchain/langsmith-ace-backend:0.17.74
+  - docker.io/langchain/langsmith-backend:0.17.74
+  - docker.io/langchain/langsmith-frontend:0.17.74
+  - docker.io/langchain/smithdb:0.17.74
+  - docker.io/pgvector/pgvector:pg15
+  - docker.io/valkey/valkey:9.1.3
