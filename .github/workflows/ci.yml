@@ -99,7 +99,8 @@ jobs:
           scripts/check_rendered_policies.sh out/rendered-b1
       - name: list images
         if: always()
-        run: grep -rhoE '^\s*image: .*' out/rendered-b1/*.yaml | sed -E 's/^\s*image: //; s/"//g' | sort -u
+        run: |
+          grep -rhoE '^\s*image: .*' out/rendered-b1/*.yaml | sed -E 's/^\s*image: //; s/"//g' | sort -u
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with:
