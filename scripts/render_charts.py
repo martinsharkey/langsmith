@@ -62,7 +62,7 @@ def main() -> int:
                 failures.append((name, res.stderr.strip()))
                 continue
             (out / f"{name}.yaml").write_text(res.stdout)
-            kinds = sum(1 for d in yaml.safe_load_all(res.stdout) if d)
+            kinds = sum(1 for line in res.stdout.splitlines() if line.startswith("kind:"))
             summary.append((name, kinds))
     for name, kinds in sorted(summary):
         print(f"rendered {name}: {kinds} objects")
