@@ -19,20 +19,6 @@ spec:
       secret:
         name: keycloak-db-credentials
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: keycloak-tls
-  namespace: keycloak
-spec:
-  secretName: keycloak-tls
-  dnsNames:
-    - keycloak.site.example
-    - keycloak-service.keycloak.svc
-  issuerRef:
-    name: platform-ca-issuer
-    kind: ClusterIssuer
----
 apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
@@ -50,9 +36,20 @@ spec:
     passwordSecret:
       name: keycloak-db-credentials
       key: password
+  # TLS ends at the ingress gateway (platform-ingress-tls). The gateway reaches Keycloak's sidecar over Istio
+  # mutual TLS (STRICT, CTL-10) and the sidecar hands the request on as plain HTTP, so Keycloak listens on HTTP
+  # (8080) inside its pod: the operator's "Edge" termination (operator guide, basic deployment).
   http:
-    tlsSecret: keycloak-tls
+    httpEnabled: true
   hostname:
-    hostname: keycloak.site.example
+    hostname: https://keycloak.site.example   # full URL: issuer and redirects never depend on forwarded headers
   proxy:
     headers: xforwarded
+  # Forwarded headers are trusted only because nothing but the gateway can reach the HTTP port.
+  networkPolicy:
+    enabled: true
+    http:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: istio-ingress
