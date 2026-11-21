@@ -1,5 +1,4 @@
-# Additional settings for GPU workers that run vLLM. Merged with agent.yaml.
-node-label:
-  - innovox.uk/pool=gpu
-node-taint:
+# /etc/rancher/rke2/config.yaml.d/20-gpu.yaml on GPU workers that run vLLM (pool "gpu"). RKE2 merges it after
+# config.yaml and 10-node.yaml, which already sets the label innovox.uk/pool=gpu.
+node-taint+:
   - innovox.uk/gpu=true:NoSchedule

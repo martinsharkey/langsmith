@@ -16,6 +16,10 @@ locals {
       for i in range(cfg.count) : "${var.mode}-${pool}-${i + 1}" => merge(cfg, { pool = pool })
     }
   ]...)
+  # The first server (by name) starts the cluster; every other node joins through the registration address.
+  # Once the cluster exists, cluster_bootstrapped = true makes every node join, so a rebuilt VM never starts a
+  # second cluster.
+  first_server = var.cluster_bootstrapped ? "" : sort([for name, node in local.nodes : name if node.role == "server"])[0]
 }
 
 resource "nutanix_virtual_machine" "node" {
@@ -49,10 +53,13 @@ resource "nutanix_virtual_machine" "node" {
   }
 
   guest_customization_cloud_init_user_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    hostname           = each.key
-    pool               = each.value.pool
-    role               = each.value.role
-    ssh_authorized_key = var.ssh_authorized_key
+    hostname              = each.key
+    pool                  = each.value.pool
+    role                  = each.value.role
+    first_server          = each.key == local.first_server
+    control_plane_address = var.control_plane_address
+    ssh_authorized_key    = var.ssh_authorized_key
+    jump_host_cidrs       = var.jump_host_cidrs
   }))
 
   categories {

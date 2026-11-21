@@ -1,0 +1,27 @@
+# Tekton Pipelines and Tekton Chains from their vendored release manifests (platform/manifests/tekton, issue 50).
+# Server-side apply: the Tekton CRDs are larger than the client-side apply annotation allows.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-tekton
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '6'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: https://git.invalid/platform.git
+    targetRevision: platform-release
+    path: platform/manifests/tekton
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tekton-pipelines
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - ServerSideApply=true

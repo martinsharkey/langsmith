@@ -9,14 +9,18 @@ on:
 permissions:
   contents: read
 
+# Each *_VERSION must equal its entry in versions.yaml (scripts/check_versions.py). Downloaded tools are checked
+# against .github/tool-checksums.txt before they run (scripts/fetch-tool.sh); Python tools install from hashed
+# requirement files in .github/requirements.
 env:
   KUBECONFORM_VERSION: v0.7.0
   KYVERNO_CLI_VERSION: v1.19.2
   GITLEAKS_VERSION: 8.30.1
   TRIVY_VERSION: 0.76.2
+  COSIGN_VERSION: v3.1.4
   HELM_VERSION: v3.22.1
-  TOFU_VERSION: 1.13.9
-  K8S_VERSION: 1.37.2
+  OPENTOFU_VERSION: 1.13.9
+  KUBERNETES_API_VERSION: 1.37.2
 
 jobs:
   lint:
@@ -26,11 +30,49 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
-      - run: pip install yamllint==1.38.0
-      - run: yamllint -s .
+      - run: |
+          pip install --require-hashes --only-binary=:all: -r .github/requirements/yamllint.txt
+      - name: yamllint (vendored upstream releases excluded; they are checked by SHA-256 instead)
+        run: git ls-files -z '*.yaml' '*.yml' ':!:**/vendor/**' | xargs -0 yamllint -s
       - name: assurance records agree with the repository
         run: python scripts/check_assurance.py
-      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh tests/*.sh e2e/*.sh
+      - name: every pinned version agrees with versions.yaml
+        run: python scripts/check_versions.py
+      - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh redteam/tests/*.sh scripts/*.sh tests/*.sh e2e/*.sh
+      - name: red-team scripts test the requested model class (stub garak, inspect and curl)
+        run: redteam/tests/test-run-scripts.sh
+      - run: python -m unittest discover -s infra/tests -v
+      - name: data, model, logging and egress-test controls as committed
+        run: python tests/static_checks.py
+
+  toolchain:
+    # scripts/fetch-tool.sh refuses a download whose SHA-256 is wrong or not recorded (issue 41).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: a download whose checksum matches is installed
+        run: |
+          URL="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "URL=$URL" >> "$GITHUB_ENV"
+          scripts/fetch-tool.sh "$URL" kubeconform
+          ./kubeconform -v
+          rm kubeconform
+      - name: a download whose checksum does not match is refused
+        run: |
+          mkdir -p out
+          sed -E 's/^[0-9a-f]{8}/00000000/' .github/tool-checksums.txt > out/corrupted-checksums.txt
+          if TOOL_CHECKSUMS=out/corrupted-checksums.txt scripts/fetch-tool.sh "$URL" kubeconform; then
+            echo "::error::fetch-tool.sh installed a download whose checksum does not match"; exit 1
+          fi
+          test ! -e kubeconform
+      - name: a download with no recorded checksum is refused
+        run: |
+          mkdir -p out
+          grep -v kubeconform .github/tool-checksums.txt > out/missing-checksums.txt
+          if TOOL_CHECKSUMS=out/missing-checksums.txt scripts/fetch-tool.sh "$URL" kubeconform; then
+            echo "::error::fetch-tool.sh installed a download that has no recorded checksum"; exit 1
+          fi
+          test ! -e kubeconform
 
   secrets:
     runs-on: ubuntu-latest
@@ -40,7 +82,7 @@ jobs:
           fetch-depth: 0
       - name: gitleaks (history and working tree)
         run: |
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz gitleaks
+          scripts/fetch-tool.sh "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
           ./gitleaks git . --config .gitleaks.toml --redact --no-banner
           ./gitleaks dir . --config .gitleaks.toml --redact --no-banner
 
@@ -50,16 +92,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: kubeconform
         run: |
-          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
+          scripts/fetch-tool.sh "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" kubeconform
           find platform/manifests platform/apps platform/argocd platform/overlays policies/egress policies/kyverno/policies tests/egress infra/rke2/manifests -name '*.yaml' \
-            ! -name kustomization.yaml -print0 | xargs -0 ./kubeconform -strict -summary \
-            -kubernetes-version "$K8S_VERSION" -skip HelmChartConfig \
+            ! -name kustomization.yaml ! -path '*/vendor/*' -print0 | xargs -0 ./kubeconform -strict -summary \
+            -kubernetes-version "$KUBERNETES_API_VERSION" -skip HelmChartConfig \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
       - name: kustomize overlays build
         run: |
           for m in b1 b2; do kubectl kustomize "platform/overlays/$m" > "/tmp/overlay-$m.yaml"; done
           for d in platform/manifests/* policies/egress/b1 policies/egress/b2 policies/kyverno/policies; do kubectl kustomize "$d" > /dev/null; done
+      - name: vendored upstream releases, as patched, match the Kubernetes schemas
+        run: |
+          # CustomResourceDefinition has no schema in either location; the API server validates CRDs on apply.
+          kubectl kustomize platform/manifests/tekton | ./kubeconform -summary -kubernetes-version "$KUBERNETES_API_VERSION" \
+            -skip CustomResourceDefinition \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
   policies:
     runs-on: ubuntu-latest
@@ -67,8 +116,111 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: kyverno policy tests
         run: |
-          curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
+          scripts/fetch-tool.sh "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" kyverno
           ./kyverno test policies/kyverno/tests
+
+  signatures:
+    # The admission signature policy run against real images in a registry (issue 36): a signed image passes; an
+    # unsigned image is refused as a container, init container, ephemeral container or image volume. Two throwaway
+    # images go to this repository's GHCR namespace, signed with a throwaway key, and are deleted afterwards. The
+    # same script verifies released images in agent-release.yml.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: admission-signature-test
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install --require-hashes --only-binary=:all: -r .github/requirements/pyyaml.txt
+      - name: tools
+        run: |
+          scripts/fetch-tool.sh "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" kyverno
+          scripts/fetch-tool.sh "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" cosign
+      - name: two throwaway images, one signed and attested with a throwaway key and no transparency log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COSIGN_PASSWORD: ci-throwaway
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}/admission-test"
+          echo "REPO=$repo" >> "$GITHUB_ENV"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          mkdir -p out/img
+          printf 'FROM scratch\nLABEL org.opencontainers.image.source=https://github.com/%s\nCOPY content /content\n' \
+            "$GITHUB_REPOSITORY" > out/img/Dockerfile
+          for which in signed unsigned; do
+            printf '%s %s\n' "$which" "$GITHUB_RUN_ID" > out/img/content
+            docker build -q -t "$repo:$which" out/img
+            docker push -q "$repo:$which"
+            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$repo:$which")"
+            echo "${which^^}=$digest" >> "$GITHUB_ENV"
+            declare "${which^^}=$digest"
+          done
+          ./cosign generate-key-pair --output-key-prefix out/throwaway
+          # The same flags agent-release.yml uses with the platform key.
+          ./cosign sign --yes --key out/throwaway.key --tlog-upload=false --use-signing-config=false "$SIGNED"
+          echo '{"bomFormat":"CycloneDX","specVersion":"1.6"}' > out/sbom.json
+          ./cosign attest --yes --key out/throwaway.key --tlog-upload=false --use-signing-config=false \
+            --type cyclonedx --predicate out/sbom.json "$SIGNED"
+          ./cosign verify --key out/throwaway.pub --insecure-ignore-tlog=true "$SIGNED" > /dev/null
+      - name: admission policy verdicts
+        run: |
+          cat > out/pods.yaml <<EOF
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: signed-container, namespace: langsmith, annotations: {test.innovox.uk/expect: pass}}
+          spec:
+            containers: [{name: app, image: "$SIGNED"}]
+          ---
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: unsigned-container, namespace: langsmith, annotations: {test.innovox.uk/expect: fail}}
+          spec:
+            containers: [{name: app, image: "$UNSIGNED"}]
+          ---
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: unsigned-init-container, namespace: langsmith, annotations: {test.innovox.uk/expect: fail}}
+          spec:
+            initContainers: [{name: init, image: "$UNSIGNED"}]
+            containers: [{name: app, image: "$SIGNED"}]
+          ---
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: unsigned-ephemeral-container, namespace: langsmith, annotations: {test.innovox.uk/expect: fail}}
+          spec:
+            containers: [{name: app, image: "$SIGNED"}]
+            ephemeralContainers: [{name: debug, image: "$UNSIGNED"}]
+          ---
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: signed-image-volume, namespace: langsmith, annotations: {test.innovox.uk/expect: pass}}
+          spec:
+            containers: [{name: app, image: "$SIGNED"}]
+            volumes: [{name: weights, image: {reference: "$SIGNED"}}]
+          ---
+          apiVersion: v1
+          kind: Pod
+          metadata: {name: unsigned-image-volume, namespace: langsmith, annotations: {test.innovox.uk/expect: fail}}
+          spec:
+            containers: [{name: app, image: "$SIGNED"}]
+            volumes: [{name: weights, image: {reference: "$UNSIGNED"}}]
+          EOF
+          cat out/pods.yaml
+          scripts/verify_signatures.py --public-key out/throwaway.pub --glob "$REPO*" --resources out/pods.yaml
+      - name: delete the throwaway images
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          package="${GITHUB_REPOSITORY#*/}/admission-test"
+          gh api -X DELETE "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/${package//\//%2F}"
 
   helm-render:
     runs-on: ubuntu-latest
@@ -77,9 +229,12 @@ jobs:
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: render every chart for both modes
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: render every chart and every plain-manifest application for both modes
         run: |
-          pip install pyyaml==6.0.3
+          pip install --require-hashes --only-binary=:all: -r .github/requirements/pyyaml.txt
           for m in b1 b2; do scripts/render_charts.py "$m" "out/rendered-$m"; done
       - name: ClickHouse must not be rendered
         run: |
@@ -90,15 +245,17 @@ jobs:
           done
       - name: schema-check rendered objects
         run: |
-          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
-          ./kubeconform -summary -ignore-missing-schemas -kubernetes-version "$K8S_VERSION" \
+          scripts/fetch-tool.sh "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" kubeconform
+          ./kubeconform -summary -ignore-missing-schemas -kubernetes-version "$KUBERNETES_API_VERSION" \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             out/rendered-b1/*.yaml
       - name: admission policies against rendered workloads
         run: |
-          curl -sSL "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" | tar xz kyverno
+          scripts/fetch-tool.sh "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" kyverno
           scripts/check_rendered_policies.py out/rendered-b1
+      - name: platform configuration checks against the rendered charts
+        run: python3 tests/config/check_platform.py --rendered out/rendered-b1
       - name: the collector accepts its configuration
         run: |
           python3 - <<'EOF'
@@ -153,17 +310,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4  # v2.0.2
         with:
-          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
       - name: OpenTofu fmt and validate
         working-directory: infra/opentofu/nutanix
         run: |
           tofu fmt -check -recursive
           tofu init -backend=false -input=false
           tofu validate
+          tofu test
       - name: Trivy misconfiguration scan
         run: |
-          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar xz trivy
-          ./trivy config --config trivy.yaml --exit-code 1 .
+          scripts/fetch-tool.sh "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy
+          # The vendored Tekton releases are upstream manifests used unchanged (AD-40), like the Helm charts, which are
+          # not scanned here either. Their workloads are checked by the admission and Pod Security checks in job
+          # helm-render (scripts/check_rendered_policies.py), and the files by SHA-256 (scripts/check_versions.py).
+          # --skip-dirs replaces the list in trivy.yaml, so that list is repeated here; it belongs in trivy.yaml.
+          ./trivy config --config trivy.yaml --exit-code 1 \
+            --skip-dirs policies/kyverno/tests,tests/admission,platform/manifests/tekton/vendor .
 
   unit:
     runs-on: ubuntu-latest
@@ -200,6 +363,9 @@ jobs:
 
   agent-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # on push to main the tested image becomes the release candidate (ADR 0066)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
@@ -207,7 +373,7 @@ jobs:
           python-version: "3.12"
       - name: build the Agent Server image (langgraph build)
         run: |
-          pip install "langgraph-cli>=0.4"
+          pip install --require-hashes --only-binary=:all: -r .github/requirements/langgraph-cli.txt
           cd agents/template && langgraph build -t innovox-agent-template:ci
       - name: image runs as built (entrypoint and graphs present)
         run: |
@@ -215,11 +381,22 @@ jobs:
           docker run --rm --entrypoint python innovox-agent-template:ci -c "import innovox_agent.agent, innovox_agent.analyst, innovox_agent.auth; print('graphs import')"
       - name: SBOM (CycloneDX) and vulnerability scan
         run: |
-          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar xz trivy
+          scripts/fetch-tool.sh "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy
           ./trivy image --format cyclonedx --output agent-sbom.cdx.json innovox-agent-template:ci
           ./trivy image --severity CRITICAL,HIGH --ignore-unfixed --format table --output agent-vulns.txt innovox-agent-template:ci
           tail -n 40 agent-vulns.txt
           ./trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 --quiet innovox-agent-template:ci
+      - name: publish the tested image as this commit's release candidate (push to main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          candidate="ghcr.io/${GITHUB_REPOSITORY,,}/agent-template:sha-${GITHUB_SHA}"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag innovox-agent-template:ci "$candidate"
+          docker push -q "$candidate"
+          docker inspect --format '{{index .RepoDigests 0}}' "$candidate" | tee agent-image.digest
+          echo "Release candidate $(cat agent-image.digest)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with:
@@ -228,6 +405,15 @@ jobs:
             agent-sbom.cdx.json
             agent-vulns.txt
           retention-days: 14
+      # agent-release.yml promotes exactly this digest, with this SBOM, when the commit is tagged.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: agent-image-candidate
+          path: |
+            agent-image.digest
+            agent-sbom.cdx.json
+          retention-days: 90
 
   workbench:
     runs-on: ubuntu-latest

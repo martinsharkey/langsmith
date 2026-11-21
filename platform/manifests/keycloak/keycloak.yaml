@@ -8,7 +8,8 @@ metadata:
   namespace: keycloak
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  # Same pin as platform/manifests/data/postgres.yaml and versions.yaml (issue 58).
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-202611201711-standard-trixie@sha256:5827829071060876c4029650c04183e4ee562da3ebb9e88c914d67c8dc8669d6
   storage:
     storageClass: ceph-block
     size: 20Gi
@@ -18,20 +19,6 @@ spec:
       owner: keycloak
       secret:
         name: keycloak-db-credentials
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: keycloak-tls
-  namespace: keycloak
-spec:
-  secretName: keycloak-tls
-  dnsNames:
-    - keycloak.site.example
-    - keycloak-service.keycloak.svc
-  issuerRef:
-    name: platform-ca-issuer
-    kind: ClusterIssuer
 ---
 apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
@@ -50,9 +37,19 @@ spec:
     passwordSecret:
       name: keycloak-db-credentials
       key: password
+  # TLS ends at the ingress gateway (platform-ingress-tls). The gateway reaches Keycloak's sidecar over Istio
+  # mutual TLS (STRICT, CTL-10) and the sidecar hands the request on as plain HTTP, so Keycloak listens on HTTP
+  # (8080) inside its pod: the operator's "Edge" termination (operator guide, basic deployment).
   http:
-    tlsSecret: keycloak-tls
+    httpEnabled: true
   hostname:
-    hostname: keycloak.site.example
+    hostname: https://keycloak.site.example   # full URL: issuer and redirects never depend on forwarded headers
   proxy:
     headers: xforwarded
+  # Forwarded headers are trusted only because nothing but the gateway can reach the HTTP port.
+  networkPolicy:
+    enabled: true
+    http:                        # NetworkPolicy peers (CRD 26.8.2: ipBlock, namespaceSelector, podSelector)
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-ingress

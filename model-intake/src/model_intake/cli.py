@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .decision import decide
+from .decision import decide, subject_of
 from .evaluate import check_thresholds
 from .files import scan_weights, write_manifest
 from .mlbom import build_mlbom
@@ -67,7 +67,9 @@ def cmd_check(args) -> int:
 def cmd_evaluate(args) -> int:
     policy = load_policy(args.policy)
     passed, outcome = check_thresholds(load_json(args.results), policy.evaluations)
-    _write(Path(args.out), "evaluation-report.json", {"passed": passed, "results": outcome})
+    # The report names the model and weights it is about, so decide can refuse an evaluation of anything else.
+    subject = subject_of(load_json(args.check_report))
+    _write(Path(args.out), "evaluation-report.json", {"passed": passed, "subject": subject, "results": outcome})
     print("PASS" if passed else "FAIL")
     for o in outcome:
         print(f"  - {o['evaluation']}.{o['metric']}: {o['value']} (minimum {o['minimum']})")
@@ -79,12 +81,15 @@ def cmd_decide(args) -> int:
     evaluation = load_json(args.evaluation_report) if args.evaluation_report else None
     try:
         record = decide(check_report, evaluation, decision=args.decision, approver=args.approver,
-                        role=args.role, reason=args.reason)
+                        role=args.role, reason=args.reason, weights_image=args.weights_image or "")
     except ValueError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
     _write(Path(args.out), "decision.json", record)
     print(f"{record['decision'].upper()}" + (f" {record['id']}" if "id" in record else ""))
+    if "admission" in record:
+        entry = record["admission"]
+        print(f"  admission: add '{entry['key']}: {entry['value']}' to ConfigMap {entry['configmap']}")
     return 0
 
 
@@ -105,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("evaluate", help="compare evaluation results with policy minimums")
     e.add_argument("--policy", required=True)
     e.add_argument("--results", required=True)
+    e.add_argument("--check-report", required=True, help="check-report.json of the model that was evaluated")
     e.add_argument("--out", required=True)
     e.set_defaults(func=cmd_evaluate)
 
@@ -115,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--approver", required=True)
     d.add_argument("--role", required=True)
     d.add_argument("--reason", required=True)
+    d.add_argument("--weights-image", help="the signed OCI image that holds the weights, by digest "
+                                           "(<repository>@sha256:<hex>); required to approve")
     d.add_argument("--out", required=True)
     d.set_defaults(func=cmd_decide)
 

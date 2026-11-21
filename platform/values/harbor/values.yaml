@@ -22,5 +22,6 @@ persistence:
       storageClass: ceph-block
 trivy:
   enabled: true
-  # B2: the vulnerability database is carried in; see airgap/zarf/README.md
+  # Connected (B1): Trivy downloads its database and may resolve dependencies online. The enclave (B2) overrides
+  # this in values-b2.yaml.
   offlineScan: false

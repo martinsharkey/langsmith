@@ -5,3 +5,9 @@ quay.io/keycloak/keycloak:26.8.2            # started by the Keycloak operator
 registry.istio.io/release/proxyv2:1.30.8    # injected sidecars and the ingress gateway (image "auto")
 quay.io/prometheus-operator/prometheus-config-reloader:v0.95.2  # set by the Prometheus operator on its pods
 # Still to list from a running B1 cluster: Ceph CSI driver and sidecar images, which the Rook operator chooses.
+# Tekton Pipelines v1.18.0: images the controller gives every TaskRun pod (controller flags in the vendored release).
+ghcr.io/tektoncd/pipeline/entrypoint-bff0a22da108bc2f16c818c97641a296:v1.18.0@sha256:e9cccf854254cb01b5941eef86179f4027da7b0e69682f815875ca5de8cf99d8
+ghcr.io/tektoncd/pipeline/nop-8eac7c133edad5df719dc37b36b62482:v1.18.0@sha256:2c216f80d2f269cad2b66ab39822eaf036c3d4070a54fda962db66616ab0d57c
+ghcr.io/tektoncd/pipeline/sidecarlogresults-7501c6a20d741631510a448b48ab098f:v1.18.0@sha256:26c32e8ad1be9b39299fe3d8f5158b6a78da8221178b3e0c1ec098b9dde63e46
+ghcr.io/tektoncd/pipeline/workingdirinit-0c558922ec6a1b739e550e349f2d5fc1:v1.18.0@sha256:0045dc1270211fed99b69da620eafc083c7f2ec0a3f09446697fd47e5490db2f
+cgr.dev/chainguard/busybox@sha256:19f02276bf8dbdd62f069b922f10c65262cc34b710eea26ff928129a736be791

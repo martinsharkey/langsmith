@@ -19,8 +19,28 @@ variable "node_image_name" {
 }
 
 variable "ssh_authorized_key" {
-  description = "Public key for the break-glass admin account, reachable only from the jump host."
+  description = "Public key for the break-glass admin account. Accepted only from jump_host_cidrs."
   type        = string
+}
+
+variable "jump_host_cidrs" {
+  description = "Addresses of the jump host, in CIDR notation. The break-glass key is accepted only from these (sshd from=)."
+  type        = list(string)
+  validation {
+    condition     = length(var.jump_host_cidrs) > 0 && alltrue([for c in var.jump_host_cidrs : can(cidrhost(c, 0))])
+    error_message = "jump_host_cidrs must list at least one address in CIDR notation."
+  }
+}
+
+variable "control_plane_address" {
+  description = "Fixed registration address of the RKE2 servers (DNS name or virtual IP). Joining servers and agents register at https://<address>:9345, and it is added to the servers' tls-san."
+  type        = string
+}
+
+variable "cluster_bootstrapped" {
+  description = "Set to true once the first server has started the cluster. Every node then joins through control_plane_address, including a rebuilt first server."
+  type        = bool
+  default     = false
 }
 
 variable "mode" {
@@ -46,5 +66,18 @@ variable "pools" {
     control = { count = 3, vcpus = 8, memory_mib = 32768, disk_mib = 204800, role = "server" }
     general = { count = 3, vcpus = 16, memory_mib = 65536, disk_mib = 307200, role = "agent" }
     storage = { count = 3, vcpus = 16, memory_mib = 65536, disk_mib = 204800, role = "agent" }
+  }
+  # The pool name becomes the node label innovox.uk/pool, and vLLM schedules on innovox.uk/pool=gpu.
+  validation {
+    condition     = alltrue([for name, cfg in var.pools : (cfg.gpu_device_id == null || name == "gpu") && (name != "gpu" || cfg.role == "agent")])
+    error_message = "GPU passthrough is only for the pool named gpu, and that pool holds agents."
+  }
+  validation {
+    condition     = anytrue([for cfg in values(var.pools) : cfg.role == "server" && cfg.count > 0])
+    error_message = "At least one pool must hold servers."
+  }
+  validation {
+    condition     = alltrue([for cfg in values(var.pools) : contains(["server", "agent"], cfg.role)])
+    error_message = "role must be server or agent."
   }
 }

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { loadConfig } from "@/lib/config.ts";
-import { logoutUrl } from "@/lib/oidc.ts";
+import { logoutUrl, revokeTokens } from "@/lib/oidc.ts";
 import { isSameOrigin } from "@/lib/proxy-rules.ts";
 import { SESSION_COOKIE, deleteSession } from "@/lib/session.ts";
 
@@ -16,5 +16,6 @@ export async function POST(request: Request) {
   const jar = await cookies();
   const session = deleteSession(jar.get(SESSION_COOKIE)?.value);
   jar.delete(SESSION_COOKIE);
+  await revokeTokens(session);
   return NextResponse.redirect(await logoutUrl(session?.idToken), { status: 303 });
 }

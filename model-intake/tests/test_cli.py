@@ -9,6 +9,7 @@ from model_intake.cli import main
 from model_intake.decision import DECISION_ID
 
 KYVERNO_PATTERN = re.compile(r"^INT-.{8}-.{8}$")  # policies/kyverno/policies/require-model-intake-record.yaml
+WEIGHTS_IMAGE = "registry.example.invalid/models/test-model@sha256:" + "0" * 64
 
 
 class EndToEnd(unittest.TestCase):
@@ -38,13 +39,14 @@ class EndToEnd(unittest.TestCase):
     def evaluate(self, score):
         results = self.out / "results.json"
         results.write_text(json.dumps({"garak": {"pass_rate": score}}))
-        return main(["evaluate", "--policy", str(self.policy), "--results", str(results), "--out", str(self.out)])
+        return main(["evaluate", "--policy", str(self.policy), "--results", str(results),
+                     "--check-report", str(self.out / "check-report.json"), "--out", str(self.out)])
 
     def decide(self, decision="approve"):
         return main(["decide", "--check-report", str(self.out / "check-report.json"),
                      "--evaluation-report", str(self.out / "evaluation-report.json"),
                      "--decision", decision, "--approver", "A. Owner", "--role", "SRO",
-                     "--reason", "test", "--out", str(self.out)])
+                     "--reason", "test", "--weights-image", WEIGHTS_IMAGE, "--out", str(self.out)])
 
     def test_happy_path_issues_kyverno_compatible_id(self):
         self.assertEqual(self.check(), 0)
@@ -56,6 +58,19 @@ class EndToEnd(unittest.TestCase):
         record = json.loads((self.out / "decision.json").read_text())
         self.assertRegex(record["id"], DECISION_ID)
         self.assertRegex(record["id"], KYVERNO_PATTERN)
+        self.assertEqual(record["weights_image"], WEIGHTS_IMAGE)
+        evaluation = json.loads((self.out / "evaluation-report.json").read_text())
+        self.assertEqual(evaluation["subject"]["manifest_sha256"], record["manifest_sha256"])
+
+    def test_evaluation_of_other_weights_cannot_approve(self):
+        self.assertEqual(self.check(), 0)
+        self.assertEqual(self.evaluate(0.97), 0)
+        report = self.out / "evaluation-report.json"
+        edited = json.loads(report.read_text())
+        edited["subject"]["manifest_sha256"] = "f" * 64
+        report.write_text(json.dumps(edited))
+        self.assertEqual(self.decide(), 2)
+        self.assertFalse((self.out / "decision.json").exists())
 
     def test_origin_not_approved_fails(self):
         policy = dict(POLICY, allowed_origins=["US"])

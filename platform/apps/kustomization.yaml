@@ -27,9 +27,12 @@ resources:
   - platform-data.yaml
   - platform-identity.yaml
   - platform-mesh.yaml
+  - platform-monitoring.yaml
+  - platform-pki.yaml
   - platform-secrets.yaml
   - platform-security.yaml
   - platform-storage.yaml
   - platform-supply-chain.yaml
   - rook-ceph.yaml
+  - tekton.yaml
   - trust-manager.yaml

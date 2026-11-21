@@ -3,4 +3,4 @@ crds:
 replicaCount: 2
 prometheus:
   servicemonitor:
-    enabled: true
+    enabled: false  # in platform/manifests/monitoring (wave 8): the CRD comes later
