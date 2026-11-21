@@ -38,7 +38,8 @@ node="$DEST/config.yaml.d/10-node.yaml"
   [ -n "$SERVER_URL" ] && echo "server: \"$SERVER_URL\""
   if [ "$ROLE" = server ]; then
     echo "tls-san:"
-    for san in $TLS_SAN; do echo "  - \"$san\""; done
+    read -ra sans <<< "$TLS_SAN"
+    for san in "${sans[@]}"; do echo "  - \"$san\""; done
   fi
   echo "node-label+:"
   echo "  - \"innovox.uk/pool=$POOL\""

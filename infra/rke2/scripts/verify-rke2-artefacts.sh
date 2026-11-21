@@ -9,6 +9,7 @@ set -euo pipefail
 dir="${1:?usage: verify-rke2-artefacts.sh ARTEFACT_DIR}"
 here="$(cd "$(dirname "$0")/.." && pwd)"
 pin="${INSTALL_SH_SHA256_FILE:-$here/install.sh.sha256}"
+pin="$(cd "$(dirname "$pin")" && pwd)/$(basename "$pin")"   # absolute, as the checks run from ARTEFACT_DIR
 # Nodes have sha256sum (coreutils); shasum is the same check on developer machines that lack it.
 if command -v sha256sum >/dev/null; then check=(sha256sum -c -); else check=(shasum -a 256 -c -); fi
 

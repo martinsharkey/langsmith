@@ -152,6 +152,19 @@ class Rke2ArtefactTest(unittest.TestCase):
         result = self.verify(d, b"#!/bin/sh\necho pinned\n")
         self.assertNotEqual(result.returncode, 0)
 
+    def test_changed_tarball_is_refused(self):
+        script = b"#!/bin/sh\necho pinned\n"
+        d = self.artefacts(script)
+        (d / "rke2.linux-amd64.tar.gz").write_bytes(b"changed")
+        self.assertNotEqual(self.verify(d, script).returncode, 0)
+
+    def test_tarball_missing_from_the_release_list_is_refused(self):
+        script = b"#!/bin/sh\necho pinned\n"
+        d = self.artefacts(script)
+        sums = d / "sha256sum-amd64.txt"
+        sums.write_text("".join(l for l in sums.read_text().splitlines(True) if "rke2-images" in l))
+        self.assertNotEqual(self.verify(d, script).returncode, 0)
+
     def test_pinned_checksum_is_in_the_repository(self):
         line = (RKE2 / "install.sh.sha256").read_text().strip()
         self.assertRegex(line, r"^[0-9a-f]{64}  install\.sh$")
@@ -202,6 +215,15 @@ class AuditPolicyTest(unittest.TestCase):
                 self.assertEqual(rule.get("level"), "RequestResponse", f"{group}: first matching rule {rule}")
                 self.assertTrue(self.WRITE_VERBS <= set(rule.get("verbs") or self.WRITE_VERBS))
 
+    def test_trust_and_deployment_boundaries_are_logged_with_bodies(self):
+        policy = yaml.safe_load((RKE2 / "config/audit-policy.yaml").read_text())
+        rule = next(r for r in policy["rules"] if r["level"] == "RequestResponse")
+        scoped = {gr["group"]: set(gr.get("resources", [])) for gr in rule["resources"]}
+        self.assertEqual(scoped["cert-manager.io"], {"issuers", "clusterissuers"})
+        self.assertEqual(scoped["external-secrets.io"], {"secretstores", "clustersecretstores"})
+        self.assertEqual(scoped["argoproj.io"], {"appprojects"})
+        self.assertFalse(rule.get("namespaces") or rule.get("users") or rule.get("userGroups"))
+
     def test_secret_contents_never_logged(self):
         policy = yaml.safe_load((RKE2 / "config/audit-policy.yaml").read_text())
         first = policy["rules"][0]
@@ -239,7 +261,8 @@ class RegistryMirrorTest(unittest.TestCase):
             with self.subTest(registry=registry):
                 hosts = {e.split("://", 1)[1].split("/", 1)[0] for e in mirror["endpoint"]}
                 self.assertTrue(hosts <= site_registries, f"{registry}: endpoint is not the site registry")
-                self.assertTrue(mirror.get("rewrite"), f"{registry}: no rewrite into a proxy-cache project")
+                self.assertEqual(mirror.get("rewrite"), {"^(.*)$": f"{registry}/$1"},
+                                 f"{registry}: must rewrite into the proxy-cache project named after it")
 
 
 if __name__ == "__main__":

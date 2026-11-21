@@ -17,7 +17,9 @@ locals {
     }
   ]...)
   # The first server (by name) starts the cluster; every other node joins through the registration address.
-  first_server = sort([for name, node in local.nodes : name if node.role == "server"])[0]
+  # Once the cluster exists, cluster_bootstrapped = true makes every node join, so a rebuilt VM never starts a
+  # second cluster.
+  first_server = var.cluster_bootstrapped ? "" : sort([for name, node in local.nodes : name if node.role == "server"])[0]
 }
 
 resource "nutanix_virtual_machine" "node" {

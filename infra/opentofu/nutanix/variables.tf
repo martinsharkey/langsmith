@@ -37,6 +37,12 @@ variable "control_plane_address" {
   type        = string
 }
 
+variable "cluster_bootstrapped" {
+  description = "Set to true once the first server has started the cluster. Every node then joins through control_plane_address, including a rebuilt first server."
+  type        = bool
+  default     = false
+}
+
 variable "mode" {
   description = "b1 (connected) or b2 (disconnected enclave)."
   type        = string
@@ -63,8 +69,12 @@ variable "pools" {
   }
   # The pool name becomes the node label innovox.uk/pool, and vLLM schedules on innovox.uk/pool=gpu.
   validation {
-    condition     = alltrue([for name, cfg in var.pools : cfg.gpu_device_id == null || (name == "gpu" && cfg.role == "agent")])
-    error_message = "GPU passthrough is only for agents in the pool named gpu."
+    condition     = alltrue([for name, cfg in var.pools : (cfg.gpu_device_id == null || name == "gpu") && (name != "gpu" || cfg.role == "agent")])
+    error_message = "GPU passthrough is only for the pool named gpu, and that pool holds agents."
+  }
+  validation {
+    condition     = anytrue([for cfg in values(var.pools) : cfg.role == "server" && cfg.count > 0])
+    error_message = "At least one pool must hold servers."
   }
   validation {
     condition     = alltrue([for cfg in values(var.pools) : contains(["server", "agent"], cfg.role)])

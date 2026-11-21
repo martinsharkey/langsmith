@@ -21,6 +21,7 @@ tofu init && tofu test && tofu plan -out plan && tofu apply plan
 Set `control_plane_address` to the fixed registration address of the servers (a DNS name or virtual IP that
 reaches every server on 9345 and 6443) and `jump_host_cidrs` to the jump host's addresses. Cloud-init writes each
 node's role, pool and registration address to `/etc/innovox/node.env`; the first server by name starts the cluster.
+After step 2, set `cluster_bootstrapped = true` so that a rebuilt node always joins and never starts a new cluster.
 Pools name the node label `innovox.uk/pool=<pool>`; GPU passthrough is allowed only in the pool named `gpu`.
 
 ### Break-glass account (owner ruling 2026-11-21, issue #43: "NOPASSWD + key + alert")

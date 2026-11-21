@@ -72,6 +72,23 @@ run "nodes_join_the_first_server" {
   }
 }
 
+run "after_bootstrap_every_node_joins" {
+  command = plan
+
+  variables {
+    cluster_bootstrapped = true
+  }
+
+  # #42: a rebuilt first server must not start a second cluster.
+  assert {
+    condition = alltrue([
+      for name, vm in nutanix_virtual_machine.node :
+      strcontains(base64decode(vm.guest_customization_cloud_init_user_data), "RKE2_SERVER_URL=https://cp.cluster.example:9345")
+    ])
+    error_message = "After bootstrap a node does not join through the registration address."
+  }
+}
+
 run "gpu_passthrough_only_in_the_gpu_pool" {
   command = plan
 

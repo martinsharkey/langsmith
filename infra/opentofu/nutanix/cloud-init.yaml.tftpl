@@ -22,11 +22,7 @@ write_files:
       NODE_POOL=${pool}
       RKE2_ROLE=${role}
       RKE2_FIRST_SERVER=${first_server}
-%{ if !first_server ~}
-      RKE2_SERVER_URL=https://${control_plane_address}:9345
-%{ endif ~}
-%{ if role == "server" ~}
-      RKE2_TLS_SAN=${control_plane_address}
-%{ endif ~}
+      RKE2_SERVER_URL=${first_server ? "" : "https://${control_plane_address}:9345"}
+      RKE2_TLS_SAN=${role == "server" ? control_plane_address : ""}
 runcmd:
   - [sh, -c, "echo 'node prepared for RKE2 ${role} (${pool})' > /etc/motd"]
