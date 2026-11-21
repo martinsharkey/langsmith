@@ -1,6 +1,7 @@
 # /etc/rancher/rke2/config.yaml on control-plane nodes. RKE2 v1.37.2+rke2r1.
 # Secrets (the join token) are never stored here: token-file is written at install time from OpenBao or the
-# operator's sealed hand-over, see docs/runbooks/install-b1.md.
+# operator's sealed hand-over, see docs/runbooks/install-b1.md. Every server but the first gets server: (the
+# registration address), and every server gets tls-san, in config.yaml.d/10-node.yaml (scripts/render-rke2-config.sh).
 token-file: /etc/rancher/rke2/token
 write-kubeconfig-mode: "0600"
 profile: cis                    # CIS Kubernetes Benchmark profile: restricted PSA, kernel defaults, etcd user

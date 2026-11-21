@@ -16,18 +16,45 @@ Replace `site.example` hostnames in an overlay for the site; never commit real h
 cd infra/opentofu/nutanix
 cp terraform.tfvars.example terraform.tfvars   # set site values; file is git-ignored
 export NUTANIX_USERNAME=... NUTANIX_PASSWORD=...   # from the site's credential hand-over
-tofu init && tofu plan -out plan && tofu apply plan
+tofu init && tofu test && tofu plan -out plan && tofu apply plan
 ```
-Label storage nodes `innovox.uk/pool=storage` and GPU nodes with `infra/rke2/config/gpu-agent.yaml`.
+Set `control_plane_address` to the fixed registration address of the servers (a DNS name or virtual IP that
+reaches every server on 9345 and 6443) and `jump_host_cidrs` to the jump host's addresses. Cloud-init writes each
+node's role, pool and registration address to `/etc/innovox/node.env`; the first server by name starts the cluster.
+After step 2, set `cluster_bootstrapped = true` so that a rebuilt node always joins and never starts a new cluster.
+Pools name the node label `innovox.uk/pool=<pool>`; GPU passthrough is allowed only in the pool named `gpu`.
+
+### Break-glass account (owner ruling 2026-11-21, issue #43: "NOPASSWD + key + alert")
+
+- `breakglass` has passwordless sudo and a locked password. Its SSH key is accepted only from `jump_host_cidrs`
+  (`from=` in `authorized_keys`); password login is off and root login is disabled.
+- Every sudo use is written to `/var/log/breakglass-sudo.log` on the node (sudoers `logfile`), and every login to the
+  node's authentication log. Both must be shipped through the audit pipeline, which alerts on each entry. Not built
+  yet: Fluent Bit does not read these files and no alert exists (issue #43); until then the test below fails.
+- Break-glass test (CTL-12): from the jump host, `ssh breakglass@<node> sudo -n true` succeeds and raises an alert;
+  the same from any other address is refused.
 
 ## 2. Kubernetes (RKE2, CIS profile)
 
-On each node, with the join token handed over out of band to `/etc/rancher/rke2/token` (mode 0600):
+Carry in, for the RKE2 version in `versions.yaml`: `rke2.linux-amd64.tar.gz`, `rke2-images.linux-amd64.tar.zst`,
+`sha256sum-amd64.txt` from the release, and `install.sh` from `https://raw.githubusercontent.com/rancher/rke2/<tag>/install.sh`.
+The script checks the tarballs against `sha256sum-amd64.txt` and `install.sh` against `infra/rke2/install.sh.sha256`
+before anything runs. Copy `infra/rke2/config/registries.yaml.example` to `/etc/rancher/rke2/registries.yaml` with
+the site registry; it expects one Harbor proxy-cache project per upstream registry, named after it. Open decision
+(issue #51): Harbor starts at wave 2, so until then containerd falls back to the upstream registries. Either seed
+a registry before the first sync, as B2 does, or allow a time-limited exception and then set
+`disable-default-registry-endpoint: true` on every node.
+
+On each node, with the join token handed over out of band to `/etc/rancher/rke2/token` (mode 0600, the same token
+on every node):
 ```bash
-ROLE=server ARTEFACT_DIR=/opt/rke2-artifacts infra/rke2/scripts/install-rke2-airgap.sh   # first, then other servers
-ROLE=agent  ARTEFACT_DIR=/opt/rke2-artifacts infra/rke2/scripts/install-rke2-airgap.sh   # workers
+ARTEFACT_DIR=/opt/rke2-artifacts infra/rke2/scripts/install-rke2-airgap.sh   # first server, then the other servers, then agents
 ```
-Check: `kubectl get nodes` all Ready; Cilium healthy (`kubectl -n kube-system get pods -l k8s-app=cilium`).
+The script reads the role, pool and registration address from `/etc/innovox/node.env`. It refuses a server that is
+not the first, or an agent, without the registration address. GPU nodes get the `innovox.uk/gpu` taint from
+`infra/rke2/config/gpu-agent.yaml`, installed into `/etc/rancher/rke2/config.yaml.d/`.
+Check: `kubectl get nodes` shows every node Ready in one cluster, with its `innovox.uk/pool` label; Cilium healthy
+(`kubectl -n kube-system get pods -l k8s-app=cilium`).
 
 ## 3. Argo CD and the platform
 
