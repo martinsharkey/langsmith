@@ -32,19 +32,34 @@ Check: `kubectl get nodes` all Ready; Cilium healthy (`kubectl -n kube-system ge
 ## 3. Argo CD and the platform
 
 ```bash
+git checkout platform-vX.Y.Z   # the release this installation runs; never a branch
 helm install argocd argo-cd --repo https://argoproj.github.io/argo-helm --version 10.18.0 -n argocd --create-namespace \
   -f platform/values/argocd/values.yaml
-kubectl apply -f platform/argocd/project.yaml -f platform/argocd/root-b1.yaml
+kubectl apply -k platform/argocd/b1
 ```
+The repository and release tag come from one file, `platform/overlays/release/kustomization.yaml`; the root
+Application and every child read the same tag. To promote an environment to a new release, check out the new tag
+and run `kubectl apply -k platform/argocd/b1` again. A merge to `main` changes no installation.
+
 Argo CD syncs in waves: namespaces and CA (0), operators (1), storage, registry and policies (2), data, identity,
-mesh and secrets (3), observability (4), models (5), LangSmith (6).
+mesh and secrets (3), observability (4), models (5), LangSmith (6). Argo CD waits for each wave's Applications to be
+Healthy before it starts the next (Application health check in `platform/values/argocd/values.yaml`).
 
-## 4. Initialise OpenBao (wave 1 finishes here)
+Argo CD has no local `admin` account. Until Keycloak is up (wave 3), and as break-glass, use the CLI against the
+cluster from the jump host: `argocd --core app list`. After wave 3, sign in at `https://argocd.site.example` with a
+Keycloak account in group `platform-admins` (full access) or `platform-readonly`.
 
+## 4. Initialise OpenBao (the root app waits here until OpenBao is unsealed and the secrets are written)
+
+OpenBao serves TLS with a certificate from the platform CA (`platform/values/openbao/values.yaml`); the `bao` CLI in
+each pod already trusts it. Pods `openbao-1` and `openbao-2` join `openbao-0` over TLS on their own (Raft
+`retry_join`), but each pod must be unsealed.
 ```bash
 kubectl -n openbao exec -ti openbao-0 -- bao operator init -key-shares=5 -key-threshold=3
 # Hand each unseal key to a named custodian. Never store them in the cluster or in this repository.
-kubectl -n openbao exec -ti openbao-0 -- bao operator unseal   # three times, three custodians
+for pod in openbao-0 openbao-1 openbao-2; do
+  kubectl -n openbao exec -ti "$pod" -- bao operator unseal   # three times per pod, three custodians
+done
 kubectl -n openbao exec -ti openbao-0 -- sh -c '
   bao login && bao secrets enable -path=platform kv-v2 && bao auth enable kubernetes &&
   bao write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc &&
@@ -54,8 +69,13 @@ P
   bao write auth/kubernetes/role/external-secrets bound_service_account_names=external-secrets \
     bound_service_account_namespaces=external-secrets policies=external-secrets ttl=1h'
 ```
-Write the platform secrets (generated on the jump host, never echoed to logs):
+Write the platform secrets (generated on the jump host, never echoed to logs). The jump host reaches OpenBao
+through a port-forward; its certificate names 127.0.0.1:
 ```bash
+kubectl -n openbao port-forward svc/openbao-active 8200 &
+kubectl -n openbao get secret openbao-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > platform-ca.crt
+export BAO_ADDR=https://127.0.0.1:8200 BAO_CACERT=$PWD/platform-ca.crt
+bao login
 bao kv put platform/langsmith/config langsmith_license_key=@licence.txt api_key_salt="$(openssl rand -hex 32)" \
   jwt_secret="$(openssl rand -hex 32)" oauth_client_secret="$(openssl rand -hex 32)" \
   insights_encryption_key="$(python3 -c 'import base64,os;print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" \
@@ -67,7 +87,12 @@ bao kv put platform/observability/opensearch admin_password="$(openssl rand -hex
 bao kv put platform/observability/grafana admin_user=admin admin_password="$(openssl rand -hex 24)"
 bao kv put platform/keycloak/postgres password="$(openssl rand -hex 24)"
 bao kv put platform/models/vllm api_key="$(openssl rand -hex 32)"
+bao kv put platform/workbench/oidc client_secret="$(openssl rand -hex 32)"   # Keycloak client `workbench`
+# Dependency-Track KEK, mode `config`: a base64-encoded 32-byte AES key (chart 2.10.0). It cannot be rotated
+# in place, so keep it with the other recovery material.
+bao kv put platform/dependency-track/kek kek="$(openssl rand -base64 32)"
 ```
+`tests/config/check_platform.py` fails if an ExternalSecret reads a path or property this step does not write.
 After Rook creates the S3 users (wave 2), copy their keys into OpenBao:
 ```bash
 k=$(kubectl -n rook-ceph get secret rook-ceph-object-user-platform-langsmith -o jsonpath='{.data.AccessKey}' | base64 -d)
