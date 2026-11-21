@@ -1,7 +1,7 @@
 # Innovox LangSmith Defence Platform
 
 Deployable reference implementation of the Innovox **sovereign agentic platform** (DP-AI-001 Solution Architecture
-v2.0, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
+v2.1, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
 platform where business users hand complex tasks to deep agents through a workbench, for UK defence and air-gapped
 sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
 free, open-source software, except LangSmith itself, which needs a licence from LangChain.
