@@ -104,8 +104,18 @@ function Session(props: {
   const streamTasks = values.async_tasks;
   const tasks = Object.values({ ...(streamTasks ?? {}), ...(polledTasks ?? {}) });
   const openTasks = tasks.some((task) => !FINISHED.has(task.status));
+  // A background task's report is not something the user typed, so it is not shown as one. Streamed copies lose
+  // its notification metadata (the SDK keeps only the stream's own additional_kwargs), so a streamed human message
+  // is recognised by its id in the thread state, which keeps the metadata.
+  const streamed = stream.messages as unknown as AnyMessage[];
+  const stateMessages = [...(values.messages ?? []), ...polledMessages];
+  const stateIds = new Set(stateMessages.flatMap((m) => (m.id ? [m.id] : [])));
+  const hiddenIds = notificationIds(stateMessages);
+  // After a background task, a streamed human message the state has not shown yet is read from the thread once more.
+  const unconfirmed =
+    tasks.length > 0 && streamed.some((m) => kindOf(m) === "human" && m.id && !stateIds.has(m.id) && !isNotification(m));
   useEffect(() => {
-    if (!openTasks || !knownThread || stream.isLoading) return;
+    if (!(openTasks || unconfirmed) || !knownThread || stream.isLoading) return;
     let stopped = false;
     const timer = window.setInterval(async () => {
       try {
@@ -124,7 +134,7 @@ function Session(props: {
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [openTasks, knownThread, stream.isLoading, props.apiUrl]);
+  }, [openTasks, unconfirmed, knownThread, stream.isLoading, props.apiUrl]);
   const todos = values.todos ?? [];
   const files = values.files ?? {};
   const subagents = useMemo(() => [...stream.subagents.values()], [stream.subagents]);
@@ -133,10 +143,7 @@ function Session(props: {
   // A new interrupt starts with no decisions.
   const interruptKey = JSON.stringify(pending.map((review) => review.action));
   useEffect(() => setChoices([]), [interruptKey]);
-  // A background task's report is not something the user typed, so it is not shown as one. Streamed copies lose
-  // its notification metadata, so it is also recognised by id in the thread values (streamed and polled).
-  const hiddenIds = notificationIds([...(values.messages ?? []), ...polledMessages]);
-  const messages = (stream.messages as unknown as AnyMessage[]).filter((m) => {
+  const messages = streamed.filter((m) => {
     const kind = kindOf(m);
     if (kind === "human") return !isNotification(m) && !(m.id && hiddenIds.has(m.id));
     return (kind === "ai" && (textOf(m.content) || m.tool_calls?.length));

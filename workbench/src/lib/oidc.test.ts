@@ -55,7 +55,7 @@ test("concurrent requests on one session share a single token refresh", async ()
   assert.equal(refreshCalls, 1, "a fresh token is used without refreshing again");
 });
 
-test("a failed refresh signs the session out for every waiting request, and a later request may retry", async () => {
+test("a failed refresh gives every waiting request no token, and a later request may retry", async () => {
   refreshCalls = 0;
   refreshResult = async () => {
     throw new Error("invalid_grant");

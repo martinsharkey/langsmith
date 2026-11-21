@@ -37,8 +37,8 @@ cites the document keys you used. If nothing relevant is found, say so."""
 def memory_namespace(runtime: Any) -> tuple[str, ...]:
     """Long-term memory is scoped to the assistant and the signed-in user (LangChain's recommended scoping).
 
-    A run with no user identity (a cron run, a misconfigured deployment) gets no memory rather than a namespace
-    shared with every other such run (T-13, CTL-15). `INNOVOX_ALLOW_ANONYMOUS_MEMORY=1` allows a shared local
+    A run with no user identity (a cron run, a misconfigured deployment) fails when it touches /memories/ rather
+    than use a namespace shared with every other such run (T-13, CTL-15). `INNOVOX_ALLOW_ANONYMOUS_MEMORY=1` allows a shared local
     namespace for development without sign-in only. PermissionError, not AttributeError: Deep Agents' StoreBackend
     re-raises an AttributeError from the factory as a different error when there is no runtime.
     """

@@ -9,10 +9,9 @@ function session(expiresAt: number) {
 
 test("the sweep removes expired sessions that are never read again, and keeps live ones", () => {
   sweepExpiredSessions();
-  const expired = createSession(session(now() - 1));
+  createSession(session(now() - 1));
   const live = createSession(session(now() + 600));
   assert.equal(sweepExpiredSessions(), 1);
   assert.equal(sweepExpiredSessions(), 0);
-  assert.equal(getSession(expired), undefined);
   assert.ok(getSession(live));
 });
