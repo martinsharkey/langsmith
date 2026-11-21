@@ -41,12 +41,15 @@ The repository and release tag come from one file, `platform/overlays/release/ku
 Application and every child read the same tag. To promote an environment to a new release, check out the new tag
 and run `kubectl apply -k platform/argocd/b1` again. A merge to `main` changes no installation.
 
-Argo CD syncs in waves: namespaces and CA (0), operators (1), storage, registry and policies (2), data, identity,
-mesh and secrets (3), observability (4), models (5), LangSmith (6). Argo CD waits for each wave's Applications to be
-Healthy before it starts the next (Application health check in `platform/values/argocd/values.yaml`).
+Argo CD syncs in waves: namespaces, cert-manager and Kyverno (0), operators (1), storage, CA issuers, policies and
+the Keycloak operator (2), OpenBao (3), the secret store (4), data, identity, mesh, registry and supply chain (5),
+observability and Dependency-Track (6), models (7), LangSmith (8). Argo CD waits for each wave's Applications to be
+Healthy before it starts the next (Application health check in `platform/values/argocd/values.yaml`), so it stops
+at wave 3 until OpenBao is unsealed (step 4). `tests/config/check_platform.py` fails if an Application needs a
+resource type, storage class or cluster issuer that a later wave provides.
 
-Argo CD has no local `admin` account. Until Keycloak is up (wave 3), and as break-glass, use the CLI against the
-cluster from the jump host: `argocd --core app list`. After wave 3, sign in at `https://argocd.site.example` with a
+Argo CD has no local `admin` account. Until Keycloak is up (wave 5), and as break-glass, use the CLI against the
+cluster from the jump host: `argocd --core app list`. After wave 5, sign in at `https://argocd.site.example` with a
 Keycloak account in group `platform-admins` (full access) or `platform-readonly`.
 
 ## 4. Initialise OpenBao (the root app waits here until OpenBao is unsealed and the secrets are written)

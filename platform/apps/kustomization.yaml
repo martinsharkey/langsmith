@@ -27,6 +27,7 @@ resources:
   - platform-data.yaml
   - platform-identity.yaml
   - platform-mesh.yaml
+  - platform-pki.yaml
   - platform-secrets.yaml
   - platform-security.yaml
   - platform-storage.yaml

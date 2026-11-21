@@ -3,4 +3,4 @@ crds:
 replicaCount: 2
 prometheus:
   servicemonitor:
-    enabled: true
+    enabled: false  # declared in kube-prometheus-stack (additionalServiceMonitors): its CRD arrives in a later wave

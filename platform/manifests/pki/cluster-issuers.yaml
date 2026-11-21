@@ -47,3 +47,7 @@ spec:
   target:
     secret:
       key: ca-bundle.crt
+      # Argo CD resolves `$platform-ca-bundle:ca-bundle.crt` in oidc.config only from a Secret with this label.
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: argocd
