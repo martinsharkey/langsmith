@@ -33,14 +33,35 @@ export function forwardHeaders(incoming: Headers, accessToken: string): Headers 
   return out;
 }
 
-const RETURNED_RESPONSE_HEADERS = ["content-type", "cache-control", "content-location", "location"];
+const RETURNED_RESPONSE_HEADERS = ["content-type", "cache-control"];
 
-export function responseHeaders(upstream: Headers): Headers {
+/** The path (and query) of `value` on Agent Server's API, or undefined if it names somewhere else. */
+function agentServerPath(value: string, agentServerUrl: string): string | undefined {
+  try {
+    const base = new URL(`${agentServerUrl.replace(/\/+$/, "")}/`);
+    const target = new URL(value, base);
+    if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) return undefined;
+    return `/${target.pathname.slice(base.pathname.length)}${target.search}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Response headers returned to the browser. Locations never name the internal Agent Server address: the
+ * LangGraph SDK resolves Content-Location against its own base URL (the workbench's /api/agent), and the browser
+ * follows Location, so that points at the proxy route. A location on any other host is dropped. */
+export function responseHeaders(upstream: Headers, agentServerUrl: string): Headers {
   const out = new Headers();
   for (const name of RETURNED_RESPONSE_HEADERS) {
     const value = upstream.get(name);
     if (value) out.set(name, value);
   }
+  const contentLocation = upstream.get("content-location");
+  const contentPath = contentLocation ? agentServerPath(contentLocation, agentServerUrl) : undefined;
+  if (contentPath) out.set("content-location", contentPath);
+  const location = upstream.get("location");
+  const locationPath = location ? agentServerPath(location, agentServerUrl) : undefined;
+  if (locationPath) out.set("location", `/api/agent${locationPath}`);
   out.set("x-accel-buffering", "no");
   return out;
 }

@@ -7,7 +7,7 @@ through `langgraph.json`, with the platform's rules built in:
 | --- | --- |
 | Models only through the LLM Gateway, by model class (AD-31, AD-59) | `models.py` |
 | Keycloak token on every request; owner-scoped threads; per-user memory; Studio disabled (AD-57) | `auth.py`, `langgraph.json` |
-| Human approval before any external action (CTL-14) | `tools.py` (`APPROVAL_REQUIRED`), `agent.py` |
+| Human approval before any external action, including every MCP tool not declared read-only (CTL-14) | `tools.py` (`APPROVAL_REQUIRED`), `agent.py` (`approval_required`) |
 | Per-user long-term memory under `/memories/` | `agent.py` (`StoreBackend`) |
 | Research delegated to a subagent on a smaller model class | `agent.py` |
 | MCP tools only from configured servers, and only those on the allowlist | `mcp_tools.py` |
@@ -19,7 +19,14 @@ pip install -e ".[dev]" && langgraph dev    # local Agent Server (LangChain's fr
 ```
 
 Environment: `LANGSMITH_GATEWAY`, `LANGSMITH_GATEWAY_API_KEY`, `MODEL_CLASS`, `SUBAGENT_MODEL_CLASS`,
-`OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `MCP_SERVERS`, `MCP_ALLOWED_TOOLS`.
+`OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, `MCP_SERVERS`, `MCP_ALLOWED_TOOLS`, `MCP_READ_ONLY_TOOLS`.
+Every allowlisted MCP tool pauses for approval unless it is also in `MCP_READ_ONLY_TOOLS`. Long-term memory needs a
+signed-in user; `INNOVOX_ALLOW_ANONYMOUS_MEMORY=1` allows one shared namespace for local development without sign-in.
+
+Dependencies are locked in `uv.lock`, which records a sha256 hash for every artefact. `langgraph build` installs
+the locked versions (`source.kind: uv` in `langgraph.json`), but langgraph-cli 0.4.43 exports them with
+`uv export --frozen --no-hashes`, so the image build does not check the hashes or that the lock matches
+`pyproject.toml`. After changing `pyproject.toml`, run `uv lock` and commit both files.
 
 ## Release
 

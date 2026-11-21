@@ -1,7 +1,9 @@
 {
-  "dependencies": [
-    "."
-  ],
+  "python_version": "3.12",
+  "source": {
+    "kind": "uv",
+    "root": "."
+  },
   "graphs": {
     "agent": "./src/innovox_agent/agent.py:make_agent",
     "analyst": "./src/innovox_agent/analyst.py:analyst"
