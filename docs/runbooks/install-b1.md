@@ -41,7 +41,7 @@ Carry in, for the RKE2 version in `versions.yaml`: `rke2.linux-amd64.tar.gz`, `r
 The script checks the tarballs against `sha256sum-amd64.txt` and `install.sh` against `infra/rke2/install.sh.sha256`
 before anything runs. Copy `infra/rke2/config/registries.yaml.example` to `/etc/rancher/rke2/registries.yaml` with
 the site registry; it expects one Harbor proxy-cache project per upstream registry, named after it. Open decision
-(issue #51): Harbor starts at wave 2, so until then containerd falls back to the upstream registries. Either seed
+(issue #51): Harbor starts at wave 6, so until then containerd falls back to the upstream registries. Either seed
 a registry before the first sync, as B2 does, or allow a time-limited exception and then set
 `disable-default-registry-endpoint: true` on every node.
 
@@ -68,15 +68,15 @@ The repository and release tag come from one file, `platform/overlays/release/ku
 Application and every child read the same tag. To promote an environment to a new release, check out the new tag
 and run `kubectl apply -k platform/argocd/b1` again. A merge to `main` changes no installation.
 
-Argo CD syncs in waves: namespaces, cert-manager and Kyverno (0), operators (1), storage, CA issuers, policies and
-the Keycloak operator (2), OpenBao (3), the secret store (4), data, identity, mesh, registry and supply chain (5),
-observability and Dependency-Track (6), models (7), LangSmith (8). Argo CD waits for each wave's Applications to be
+Argo CD syncs in waves: namespaces, cert-manager and Kyverno (0), operators (1), CA issuers, policies and the
+Keycloak operator (2), storage (3), OpenBao (4), the secret store (5), data, identity, mesh, registry and supply
+chain (6), observability and Dependency-Track (7), models (8), LangSmith (9). Argo CD waits for each wave's Applications to be
 Healthy before it starts the next (Application health check in `platform/values/argocd/values.yaml`), so it stops
-at wave 3 until OpenBao is unsealed (step 4). `tests/config/check_platform.py` fails if an Application needs a
+at wave 4 until OpenBao is unsealed (step 4). `tests/config/check_platform.py` fails if an Application needs a
 resource type, storage class or cluster issuer that a later wave provides.
 
-Argo CD has no local `admin` account. Until Keycloak is up (wave 5), and as break-glass, use the CLI against the
-cluster from the jump host: `argocd --core app list`. After wave 5, sign in at `https://argocd.site.example` with a
+Argo CD has no local `admin` account. Until Keycloak is up (wave 6), and as break-glass, use the CLI against the
+cluster from the jump host: `argocd --core app list`. After wave 6, sign in at `https://argocd.site.example` with a
 Keycloak account in group `platform-admins` (full access) or `platform-readonly`.
 
 ## 4. Initialise OpenBao (the root app waits here until OpenBao is unsealed and the secrets are written)
@@ -131,7 +131,7 @@ bao kv put platform/tekton-chains/signing cosign_key=@cosign.key cosign_password
 unset COSIGN_PASSWORD
 ```
 `tests/config/check_platform.py` fails if an ExternalSecret reads a path or property this step does not write.
-After Rook creates the S3 users (wave 2), copy their keys into OpenBao (same shell and port-forward), then stop
+After Rook creates the S3 users (wave 3), copy their keys into OpenBao (same shell and port-forward), then stop
 the port-forward and remove the CA file:
 ```bash
 k=$(kubectl -n rook-ceph get secret rook-ceph-object-user-platform-langsmith -o jsonpath='{.data.AccessKey}' | base64 -d)

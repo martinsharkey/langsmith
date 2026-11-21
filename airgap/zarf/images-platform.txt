@@ -23,7 +23,6 @@ docker.io/rook/ceph:v1.21.2
 docker.io/vllm/vllm-openai:v0.33.0
 ecr-public.aws.com/docker/library/redis:8.6.4-alpine
 ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1
-ghcr.io/cloudnative-pg/postgresql:18
 ghcr.io/cloudnative-pg/postgresql:18.7-202611201711-standard-trixie@sha256:5827829071060876c4029650c04183e4ee562da3ebb9e88c914d67c8dc8669d6
 ghcr.io/external-secrets/external-secrets:v2.15.0
 ghcr.io/jkroepke/kube-webhook-certgen:1.11.1

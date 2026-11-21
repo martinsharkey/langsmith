@@ -18,7 +18,7 @@ platform:
   ceph-image: quay.io/ceph/ceph:v20.2.5
   aws-cli-image: docker.io/amazon/aws-cli:2.40.1   # bucket creation job (platform/manifests/rook)
   cloudnative-pg-chart: 0.29.1      # https://cloudnative-pg.github.io/charts
-  postgresql-image: ghcr.io/cloudnative-pg/postgresql:18
+  postgresql-image: ghcr.io/cloudnative-pg/postgresql:18.7-202611201711-standard-trixie@sha256:5827829071060876c4029650c04183e4ee562da3ebb9e88c914d67c8dc8669d6  # CloudNativePG catalog-standard-trixie
   valkey-image: docker.io/valkey/valkey:9.1.3
   harbor-chart: 1.19.4              # https://helm.goharbor.io
   keycloak-operator: 26.8.2         # github.com/keycloak/keycloak-k8s-resources

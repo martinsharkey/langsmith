@@ -1,7 +1,18 @@
 # Renders the real cloud-init template through the module (issues #42 and #43). No Prism Central is needed:
 # the Nutanix provider is mocked, and only plan-time values are checked. Run with `tofu test`.
 
-mock_provider "nutanix" {}
+# The provider checks that references are UUIDs, so the mocked data sources return invented UUID-shaped ids.
+mock_provider "nutanix" {
+  mock_data "nutanix_cluster" {
+    defaults = { id = "00000000-0000-4000-8000-000000000001" }
+  }
+  mock_data "nutanix_subnet" {
+    defaults = { id = "00000000-0000-4000-8000-000000000002" }
+  }
+  mock_data "nutanix_image" {
+    defaults = { id = "00000000-0000-4000-8000-000000000003" }
+  }
+}
 
 variables {
   prism_central_endpoint = "prism.cluster.example"
