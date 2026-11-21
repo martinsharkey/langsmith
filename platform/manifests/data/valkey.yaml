@@ -15,6 +15,44 @@ spec:
       port: 6379
       targetPort: 6379
 ---
+# The password reaches Valkey as a configuration file, never as an argument: arguments are readable by any process
+# on the node through /proc/<pid>/cmdline (issue 61). External Secrets renders the file from the same OpenBao entry
+# as valkey-auth. The include is not a wildcard, so Valkey refuses to start if the file is missing.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: valkey-server-auth
+  namespace: langsmith
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  target:
+    name: valkey-server-auth
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        auth.conf: |
+          requirepass "{{ .password }}"
+  data:
+  - secretKey: password
+    remoteRef:
+      key: langsmith/valkey
+      property: password
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valkey-config
+  namespace: langsmith
+data:
+  valkey.conf: |
+    appendonly yes
+    dir /data
+    include /etc/valkey/auth/auth.conf
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -40,9 +78,10 @@ spec:
       containers:
         - name: valkey
           image: docker.io/valkey/valkey:9.1.3
-          args: ["--requirepass", "$(VALKEY_PASSWORD)", "--appendonly", "yes", "--dir", "/data"]
+          command: ["valkey-server", "/etc/valkey/valkey.conf"]
           env:
-            - name: VALKEY_PASSWORD
+            # valkey-cli reads the password from this variable, so the probe passes no -a argument either.
+            - name: VALKEYCLI_AUTH
               valueFrom:
                 secretKeyRef:
                   name: valkey-auth
@@ -62,11 +101,26 @@ spec:
               memory: 4Gi
           readinessProbe:
             exec:
-              command: ["sh", "-c", "valkey-cli -a \"$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+              command: ["sh", "-c", "valkey-cli ping | grep -q PONG"]
             periodSeconds: 10
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: config
+              mountPath: /etc/valkey/valkey.conf
+              subPath: valkey.conf
+              readOnly: true
+            - name: auth
+              mountPath: /etc/valkey/auth
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: valkey-config
+        - name: auth
+          secret:
+            secretName: valkey-server-auth
+            defaultMode: 288     # 0440: owner root, group 999 (fsGroup) reads it
   volumeClaimTemplates:
     - metadata:
         name: data

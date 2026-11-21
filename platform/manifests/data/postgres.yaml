@@ -9,7 +9,9 @@ metadata:
   namespace: langsmith
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  # Full version, build and digest from CloudNativePG's signed image catalogue (catalog-standard-trixie.yaml, read
+  # 2026-11-21). The bare `18` tag moves between builds (issue 58).
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-202611201711-standard-trixie@sha256:5827829071060876c4029650c04183e4ee562da3ebb9e88c914d67c8dc8669d6
   primaryUpdateStrategy: unsupervised
   certificates:                          # server certificate from the platform CA (cert-manager)
     serverTLSSecret: langsmith-pg-server-tls
@@ -20,6 +22,14 @@ spec:
   walStorage:
     storageClass: ceph-block
     size: 50Gi
+  # Volume-snapshot base backups (CloudNativePG 1.30, Appendix A). There is no WAL archive yet, so the default hot
+  # backup, which waits for the archiver, is replaced by a cold one: CloudNativePG takes it from a standby, which is
+  # stopped for the snapshot. These snapshots stay in the same Ceph cluster; an off-cluster copy and point-in-time
+  # recovery need the Barman Cloud plugin and an object store outside Ceph (issue 48, owner decision).
+  backup:
+    volumeSnapshot:
+      className: ceph-block-snapshots
+      online: false
   bootstrap:
     initdb:
       database: langsmith
