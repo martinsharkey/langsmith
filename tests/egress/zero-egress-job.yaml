@@ -1,10 +1,12 @@
-# Gate E2 / CTL-08. Proves the enclave (B2) has no route out: every attempt must FAIL. Run from inside a platform
-# namespace so the same policies apply. The job succeeds only when all connections are refused or time out.
+# Gate E2 / CTL-08. Proves the enclave (B2) has no route out. tests/run-e2-checks.sh runs this Job in namespaces
+# that have no egress policy of their own (issue 34): egress-probe, which the script creates and deletes, and
+# observability, a privileged platform namespace. Only the cluster-wide deny-world-egress policy can then block it.
+# The Job succeeds only when the in-cluster positive control (the API server) connects, so a probe that cannot open
+# sockets at all is not mistaken for zero egress, and every outside target is refused or times out. Negative control at E1: with deny-world-egress removed, it must fail.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: zero-egress-test
-  namespace: langsmith
   labels:
     innovox.uk/test: zero-egress
 spec:
@@ -32,6 +34,14 @@ spec:
           args:
             - |
               fail=0
+              for target in kubernetes.default.svc.cluster.local:443; do
+                host=${target%:*}; port=${target#*:}
+                if timeout 5 bash -c "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
+                  echo "ok   reached in-cluster $target"
+                else
+                  echo "FAIL in-cluster $target unreachable: the probe cannot tell blocked from broken"; fail=1
+                fi
+              done
               for target in 1.1.1.1:443 8.8.8.8:53 9.9.9.9:443 beacon.langchain.com:443 github.com:443; do
                 host=${target%:*}; port=${target#*:}
                 if timeout 5 bash -c "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
