@@ -4,8 +4,10 @@
 A policy that would refuse the platform's own workloads is found in CI, not at deployment. Helm test hooks are
 dropped first: Argo CD does not apply them. Signature verification needs a registry and is checked at gate E1.
 
-It also checks each chart's workloads against the Pod Security level its namespace enforces
-(platform/manifests/base/namespaces.yaml), which the API server would otherwise refuse at deployment.
+It also checks each workload against the Pod Security level its namespace enforces, which the API server would
+otherwise refuse at deployment. A workload's namespace is its own metadata.namespace, or the Application's
+destination when it has none. Levels come from platform/manifests/base/namespaces.yaml and from any Namespace a
+rendered application creates itself (for example the namespaces in the Tekton release manifests).
 
 Usage: check_rendered_policies.py <rendered dir>   (env KYVERNO = path to the kyverno CLI, default ./kyverno)
 """
@@ -67,11 +69,16 @@ spec:
 """
 
 
-def namespace_levels() -> dict[str, str]:
+def namespace_levels(rendered: pathlib.Path) -> dict[str, str]:
+    docs = list(yaml.safe_load_all(pathlib.Path("platform/manifests/base/namespaces.yaml").read_text()))
+    for path in sorted(rendered.glob("[a-z]*.yaml")):
+        docs += [d for d in yaml.load_all(path.read_text(), Loader=Loader) if isinstance(d, dict)]
     levels = {}
-    for doc in yaml.safe_load_all(pathlib.Path("platform/manifests/base/namespaces.yaml").read_text()):
+    for doc in docs:
         if doc and doc.get("kind") == "Namespace":
-            levels[doc["metadata"]["name"]] = doc["metadata"]["labels"]["pod-security.kubernetes.io/enforce"]
+            label = (doc["metadata"].get("labels") or {}).get("pod-security.kubernetes.io/enforce")
+            if label:
+                levels[doc["metadata"]["name"]] = label
     return levels
 
 
@@ -81,10 +88,12 @@ def main() -> int:
     work = rendered / "_policy-input"
     work.mkdir(exist_ok=True)
     status = 0
-    levels = namespace_levels()
+    levels = namespace_levels(rendered)
     app_namespace = json.loads((rendered / "_namespaces.json").read_text())
     for path in sorted(rendered.glob("[a-z]*.yaml")):
         docs, by_name = [], {}
+        app_ns = app_namespace.get(path.stem, "")
+        workloads: dict[str, list[dict]] = {}
         for doc in yaml.load_all(path.read_text(), Loader=Loader):
             if not isinstance(doc, dict) or "kind" not in doc:
                 continue
@@ -93,6 +102,8 @@ def main() -> int:
                 continue
             docs.append(doc)
             by_name[f"{doc['kind']}/{doc.get('metadata', {}).get('name')}"] = images(doc)
+            if images(doc):
+                workloads.setdefault((doc.get("metadata") or {}).get("namespace") or app_ns, []).append(doc)
         target = work / path.name
         target.write_text(yaml.safe_dump_all(docs))
         res = subprocess.run([kyverno, "apply", *POLICIES, "--resource", str(target)],
@@ -108,15 +119,19 @@ def main() -> int:
                 print(f"  refused {name}: {', '.join(by_name.get(name, ['?']))}")
             if not failed:
                 print("  " + "\n  ".join(out.strip().splitlines()[-5:]))
-        namespace = app_namespace.get(path.stem, "")
-        level = levels.get(namespace)
-        if level is None:
-            print(f"  ::error::namespace '{namespace}' of {path.stem} has no Pod Security level in namespaces.yaml")
-            status = 1
-        elif level != "privileged":
+        for namespace in sorted(workloads):
+            level = levels.get(namespace)
+            if level is None:
+                print(f"  ::error::namespace '{namespace}' of {path.stem} has no Pod Security level")
+                status = 1
+                continue
+            if level == "privileged":
+                continue
+            subset = work / f"_pss-{path.stem}-{namespace}.yaml"
+            subset.write_text(yaml.safe_dump_all(workloads[namespace]))
             policy = work / f"_pss-{level}.yaml"
             policy.write_text(PSS_POLICY.format(level=level))
-            pss = subprocess.run([kyverno, "apply", str(policy), "--resource", str(target)],
+            pss = subprocess.run([kyverno, "apply", str(policy), "--resource", str(subset)],
                                  capture_output=True, text=True, check=False)
             if pss.returncode != 0:
                 status = 1

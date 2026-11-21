@@ -2,6 +2,7 @@
 # Renovate (renovate.json) proposes upgrades as pull requests; every upgrade passes gates PR, E1 and E2.
 kubernetes:
   rke2: v1.37.2+rke2r1
+  kubernetes-api: 1.37.2           # the Kubernetes version of rke2; schema checks and helm template use it
 gitops:
   argo-cd-chart: 10.18.0            # https://argoproj.github.io/argo-helm
 platform:

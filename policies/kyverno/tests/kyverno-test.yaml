@@ -8,6 +8,8 @@ policies:
   - ../policies/require-model-intake-record.yaml
 resources:
   - resources.yaml
+# Offline stand-in for the cluster state the policies read with resource.Get().
+context: context.yaml
 results:
   - policy: restrict-image-sources
     isValidatingPolicy: true
@@ -16,17 +18,17 @@ results:
     result: pass
   - policy: restrict-image-sources
     isValidatingPolicy: true
-    resources: [bad-unknown-source, bad-lookalike-source]
+    resources: [bad-unknown-source, bad-lookalike-source, bad-image-volume-source]
     kind: Pod
     result: fail
   - policy: disallow-latest-tag
     isValidatingPolicy: true
-    resources: [good-langsmith, good-registry-port]
+    resources: [good-langsmith, good-registry-port, good-model]
     kind: Pod
     result: pass
   - policy: disallow-latest-tag
     isValidatingPolicy: true
-    resources: [bad-untagged, bad-latest, bad-untagged-registry-port]
+    resources: [bad-untagged, bad-latest, bad-untagged-registry-port, bad-image-volume-latest]
     kind: Pod
     result: fail
   - policy: require-model-intake-record
@@ -36,6 +38,8 @@ results:
     result: pass
   - policy: require-model-intake-record
     isValidatingPolicy: true
-    resources: [bad-model-no-record, bad-model-missing-annotation]
+    resources: [bad-model-no-record, bad-model-missing-annotation, bad-model-unissued-record,
+                bad-model-other-weights, bad-model-no-weights-volume, bad-vllm-outside-models,
+                bad-vllm-outside-models-unissued]
     kind: Pod
     result: fail
