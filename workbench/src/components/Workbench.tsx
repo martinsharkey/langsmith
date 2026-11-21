@@ -108,9 +108,9 @@ function Session(props: {
   // its notification metadata (the SDK keeps only the stream's own additional_kwargs), so a streamed human message
   // is recognised by its id in the thread state, which keeps the metadata.
   const streamed = stream.messages as unknown as AnyMessage[];
-  const stateMessages = [...(values.messages ?? []), ...polledMessages];
-  const stateIds = new Set(stateMessages.flatMap((m) => (m.id ? [m.id] : [])));
-  const hiddenIds = notificationIds(stateMessages);
+  // `values.messages` from the stream may hold the streamed copy too, so only the polled thread state confirms an id.
+  const hiddenIds = notificationIds([...(values.messages ?? []), ...polledMessages]);
+  const stateIds = new Set(polledMessages.flatMap((m) => (m.id ? [m.id] : [])));
   // After a background task, a streamed human message the state has not shown yet is read from the thread once more.
   const unconfirmed =
     tasks.length > 0 && streamed.some((m) => kindOf(m) === "human" && m.id && !stateIds.has(m.id) && !isNotification(m));
