@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - ../common
   - approved-egress.yaml
+  - deny-world-egress.yaml
