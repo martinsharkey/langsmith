@@ -4,7 +4,7 @@
 Each check names the issue it guards. Static checks always run; the others run when their input is given:
 
   check_platform.py                                   static checks only
-  check_platform.py --rendered out/rendered-b1        also checks rendered OpenBao and Argo CD charts
+  check_platform.py --rendered out/rendered-b1        also checks rendered charts (OpenBao, Argo CD, LangSmith)
   check_platform.py --built overlay-b1.yaml ...       also checks Applications built by kustomize
 
 Inputs come from the CI entry points: scripts/render_charts.py writes the rendered charts and
@@ -257,6 +257,152 @@ def check_rendered_argocd(rendered: Path) -> None:
     print(f"{check}: argocd-cm keys {sorted(k for k in cm if not k.startswith('resource.exclusions'))[:12]}")
 
 
+# --- #33: which pods may reach the internet --------------------------------------------------------------------
+# Owner ruling on #33 (2026-11-21): in B1 only the LLM Gateway (approved model endpoints), the LangSmith services
+# that hold the licence (beacon) and Argo CD (git and chart sources) reach the internet, each to named hosts. In
+# both modes CoreDNS forwards to the site's resolvers on port 53. Every other pod is denied `world`.
+#
+# The evaluator below applies Kubernetes label-selector rules (matchLabels; In, NotIn, Exists, DoesNotExist, where
+# NotIn and DoesNotExist also match a pod without the key: kubernetes.io/docs/concepts/overview/working-with-objects/
+# labels/#set-based-requirement). Cilium's endpointSelector "is based on the Kubernetes LabelSelector" (Cilium
+# v1.20 policy docs, intro). It evaluates sample pods, one per namespace, against the committed policies.
+
+NS_KEYS = ("k8s:io.kubernetes.pod.namespace", "io.kubernetes.pod.namespace")
+COMPONENT = "app.kubernetes.io/component"
+GATEWAY_COMPONENT = "langsmith-agent-gateway"
+B1_WORLD_NAMESPACES = {"argocd"}          # namespaces with their own host allow-list instead of the deny
+
+
+def selects(selector: dict, labels: dict) -> bool:
+    def value(key):
+        if key in NS_KEYS:
+            return labels.get(NS_KEYS[0])
+        return labels.get(key.removeprefix("k8s:"))
+    for key, want in (selector.get("matchLabels") or {}).items():
+        if value(key) != str(want):
+            return False
+    for expr in selector.get("matchExpressions") or []:
+        have, values, op = value(expr["key"]), set(expr.get("values") or []), expr["operator"]
+        if (op == "In" and have not in values) or (op == "NotIn" and have in values) \
+                or (op == "Exists" and have is None) or (op == "DoesNotExist" and have is not None):
+            return False
+    return True
+
+
+def egress_policies(mode: str) -> list[tuple[Path, dict]]:
+    return [(p, d) for p, d in manifests(f"policies/egress/{mode}", "policies/egress/common")
+            if d.get("kind") in ("CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy")]
+
+
+def applies(doc: dict, labels: dict) -> bool:
+    ns = doc["metadata"].get("namespace")
+    if doc["kind"] == "CiliumNetworkPolicy" and ns != labels[NS_KEYS[0]]:
+        return False
+    return selects(doc["spec"].get("endpointSelector") or {}, labels)
+
+
+def world_denied(mode: str, labels: dict) -> bool:
+    return any(applies(d, labels) and any("world" in r.get("toEntities", []) for r in d["spec"].get("egressDeny", []))
+               for _, d in egress_policies(mode))
+
+
+def reaches_outside(rule: dict) -> bool:
+    return bool(rule.get("toFQDNs") or rule.get("toCIDR") or rule.get("toCIDRSet")
+                or {"world", "all"} & set(rule.get("toEntities", [])))
+
+
+def licence_components() -> set[str]:
+    """Components the B1 beacon rule allows (matchExpressions on app.kubernetes.io/component)."""
+    for _, doc in egress_policies("b1"):
+        if doc["metadata"]["name"] == "langsmith-licence-beacon":
+            sel = doc["spec"].get("endpointSelector") or {}
+            return {v for e in sel.get("matchExpressions") or [] if e["key"] == COMPONENT and e["operator"] == "In"
+                    for v in e["values"]}
+    return set()
+
+
+def check_egress() -> None:
+    check = "#33 egress"
+    namespaces = sorted({d["metadata"]["name"] for _, d in manifests("platform/manifests/base")
+                         if d.get("kind") == "Namespace"} | {"kube-system", "default", "egress-probe"})
+    for mode in ("b1", "b2"):
+        # 1. A rule that reaches outside the cluster names the pods it is for.
+        for path, doc in egress_policies(mode):
+            if any(reaches_outside(r) for r in doc["spec"].get("egress", [])):
+                sel = doc["spec"].get("endpointSelector") or {}
+                if not (sel.get("matchLabels") or sel.get("matchExpressions")):
+                    fail(check, f"{path.relative_to(ROOT)} {doc['metadata']['name']}: a rule to the internet "
+                                "applies to every pod (empty endpointSelector)")
+        # 2. Sample pods: who is denied `world`.
+        exempt = {("kube-system", "kube-dns")}
+        if mode == "b1":
+            exempt |= {(ns, None) for ns in B1_WORLD_NAMESPACES}
+            exempt |= {("langsmith", c) for c in licence_components() | {GATEWAY_COMPONENT}}
+        samples = [(ns, None) for ns in namespaces] + sorted(exempt)
+        for ns, component in samples:
+            labels = {NS_KEYS[0]: ns}
+            if component == "kube-dns":
+                labels["k8s-app"] = "kube-dns"
+            elif component:
+                labels[COMPONENT] = component
+            want = (ns, component) not in exempt
+            if world_denied(mode, labels) != want:
+                fail(check, f"{mode}: a pod in {ns}{' (' + component + ')' if component else ''} is "
+                            f"{'not ' if want else ''}denied internet egress")
+        # 3. An exempt pod is still limited: its own policy allows only the cluster, DNS and named hosts.
+        for ns, component in sorted(exempt):
+            labels = {NS_KEYS[0]: ns, **({"k8s-app": "kube-dns"} if component == "kube-dns" else
+                                        {COMPONENT: component} if component else {})}
+            rules = [r for _, d in egress_policies(mode) if applies(d, labels) for r in d["spec"].get("egress", [])]
+            if not rules:
+                fail(check, f"{mode}: {ns}{' (' + component + ')' if component else ''} is not denied the internet "
+                            "and has no egress policy of its own, so it can reach any address")
+            for r in rules:
+                if {"world", "all"} & set(r.get("toEntities", [])) or r.get("toCIDR") or r.get("toCIDRSet"):
+                    if component != "kube-dns" or any(p.get("port") != "53"
+                                                      for tp in r.get("toPorts", []) for p in tp.get("ports", [])) \
+                            or not r.get("toPorts"):
+                        fail(check, f"{mode}: {ns} may reach any internet address; name the hosts (toFQDNs)")
+    # 4. Argo CD's host list covers every source outside this repository.
+    allowed = {f.get("matchName") or f.get("matchPattern") for _, d in egress_policies("b1")
+               if d["metadata"].get("namespace") == "argocd" for r in d["spec"].get("egress", [])
+               for f in r.get("toFQDNs", [])}
+    release = release_source()
+    hosts = {urlparse(release[0]).hostname} if release else set()
+    for _, app in manifests("platform/apps"):
+        for src in app.get("spec", {}).get("sources") or [app.get("spec", {}).get("source") or {}]:
+            if src.get("repoURL") and src["repoURL"] != PLACEHOLDER_REPO:
+                hosts.add(urlparse(src["repoURL"]).hostname)
+    for host in sorted(hosts):
+        if not any(host == a or (a and a.startswith("*.") and host.endswith(a[1:])) for a in allowed):
+            fail(check, f"b1: Argo CD sources come from {host}, which policies/egress/b1 does not allow Argo CD")
+    print(f"{check}: {len(namespaces)} namespaces, {len(hosts)} Argo CD source hosts, "
+          f"{len(licence_components())} licence components")
+
+
+def check_rendered_licence(rendered: Path) -> None:
+    """The beacon rule allows exactly the LangSmith workloads the chart gives the licence key, and the gateway rule
+    selects a component the chart renders."""
+    check = "#33 licence-beacon"
+    holders, components = set(), set()
+    for doc in yaml.load_all((rendered / "langsmith.yaml").read_text(), Loader=RenderedLoader):
+        if not isinstance(doc, dict) or doc.get("kind") not in ("Deployment", "StatefulSet", "Job"):
+            continue
+        template = doc["spec"]["template"]
+        component = (template["metadata"].get("labels") or {}).get(COMPONENT)
+        components.add(component)
+        if "langsmith_license_key" in yaml.safe_dump(template):
+            holders.add(component)
+    allowed = licence_components()
+    for c in sorted(holders - allowed):
+        fail(check, f"{c} holds the licence key but may not reach the beacon")
+    for c in sorted(allowed - holders):
+        fail(check, f"{c} may reach the beacon but the chart gives it no licence key")
+    if GATEWAY_COMPONENT not in components:
+        fail(check, f"no rendered workload has {COMPONENT}={GATEWAY_COMPONENT}; the gateway rule selects nothing")
+    print(f"{check}: {len(holders)} workloads hold the licence key")
+
+
 # --- #59: with the Application health check, a wave waits for the one before it; nothing may need a later wave ---
 
 def kustomize_resources(directory: Path) -> list[dict]:
@@ -357,12 +503,14 @@ def main() -> int:
     check_runbook_secrets()
     check_keycloak_route()
     check_gitops_files()
+    check_egress()
     if args.built:
         check_built(args.built)
     if args.rendered:
         check_rendered_openbao(args.rendered)
         check_rendered_argocd(args.rendered)
         check_sync_waves(args.rendered)
+        check_rendered_licence(args.rendered)
     for line in errors:
         print("ERROR", line)
     print(f"{len(errors)} error(s)")
