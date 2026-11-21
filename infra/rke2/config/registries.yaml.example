@@ -1,12 +1,44 @@
 # /etc/rancher/rke2/registries.yaml. Copy and set the enclave or site registry. Credentials come from the
 # install-time secret hand-over, never from this repository.
+# Every registry on the image allowlist (policies/kyverno/policies/restrict-image-sources.yaml) has a mirror here,
+# checked by infra/tests/test_nodes.py. Each mirror rewrites into a Harbor proxy-cache project named after the
+# upstream registry (Harbor: Administration > Registries, then a project with Proxy Cache on), so every pull is
+# cached and scanned by Harbor. Rewrite syntax: docs.rke2.io/install/private_registry.
+# containerd still tries the upstream registry last unless the node sets disable-default-registry-endpoint: true;
+# see docs/runbooks/install-b1.md, step 2.
 mirrors:
   docker.io:
     endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "docker.io/$1"
   ghcr.io:
     endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "ghcr.io/$1"
   quay.io:
     endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "quay.io/$1"
+  registry.k8s.io:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "registry.k8s.io/$1"
+  reg.kyverno.io:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "reg.kyverno.io/$1"
+  registry.istio.io:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "registry.istio.io/$1"
+  cr.fluentbit.io:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "cr.fluentbit.io/$1"
+  ecr-public.aws.com:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "ecr-public.aws.com/$1"
 configs:
   harbor.site.example:
     tls:

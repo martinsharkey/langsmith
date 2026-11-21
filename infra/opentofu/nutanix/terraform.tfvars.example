@@ -4,4 +4,6 @@ cluster_name           = "site-cluster-1"
 subnet_name            = "dp-ai-001-nodes"
 node_image_name        = "hardened-linux-rke2"
 ssh_authorized_key     = "ssh-ed25519 AAAA... breakglass@jumphost"
+jump_host_cidrs        = ["192.0.2.10/32"]
+control_plane_address  = "rke2.site.example"
 mode                   = "b1"

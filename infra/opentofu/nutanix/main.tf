@@ -49,10 +49,13 @@ resource "nutanix_virtual_machine" "node" {
   }
 
   guest_customization_cloud_init_user_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    hostname           = each.key
-    pool               = each.value.pool
-    role               = each.value.role
-    ssh_authorized_key = var.ssh_authorized_key
+    hostname              = each.key
+    pool                  = each.value.pool
+    role                  = each.value.role
+    first_server          = each.key == local.first_server
+    control_plane_address = var.control_plane_address
+    ssh_authorized_key    = var.ssh_authorized_key
+    jump_host_cidrs       = var.jump_host_cidrs
   }))
 
   categories {

@@ -14,9 +14,17 @@ rules:
       - group: "rbac.authorization.k8s.io"
       - group: "admissionregistration.k8s.io"
       - group: "kyverno.io"
+      - group: "policies.kyverno.io"        # ValidatingPolicy, ImageValidatingPolicy (policies/kyverno)
       - group: "cilium.io"
       - group: "security.istio.io"
+      - group: "networking.istio.io"        # ServiceEntry: the approved egress list (policies/egress)
       - group: "networking.k8s.io"
+      - group: "cert-manager.io"            # issuers decide which certificates the platform trusts
+        resources: ["issuers", "clusterissuers"]
+      - group: "external-secrets.io"        # secret stores decide where secrets come from; no secret values
+        resources: ["secretstores", "clustersecretstores"]
+      - group: "argoproj.io"                # projects bound what Argo CD may deploy; Applications stay at
+        resources: ["appprojects"]          # Metadata, as the controller writes their status continuously
   - level: None
     users: ["system:kube-proxy"]
     verbs: ["watch"]
