@@ -17,7 +17,8 @@ import sys
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-THIS_REPO = "https://github.com/martinsharkey/langsmith.git"
+# This repository, as Application files name it before and after platform/overlays/release replaces the placeholder.
+THIS_REPO = ("https://github.com/martinsharkey/langsmith.git", "https://git.invalid/platform.git")
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -65,7 +66,7 @@ def main() -> int:
                 src.pop("path", None)
             helm = src.get("helm")
             if "chart" not in src and not (helm and "path" in src):
-                if src["repoURL"] == THIS_REPO and "path" in src:
+                if src["repoURL"] in THIS_REPO and "path" in src:
                     res = run(["kubectl", "kustomize", str(ROOT / src["path"])])
                     if res.returncode != 0:
                         failures.append((name, res.stderr.strip()))

@@ -1,5 +1,14 @@
-# CTL-04 / AD-46. A model server may only start when it names the intake decision that approved its weights.
-# The model-intake tool issues decision IDs of the form INT-YYYYMMDD-xxxxxxxx.
+# CTL-04 / AD-46. A model server may only start when it names an intake decision that was issued, and mounts the
+# weights that decision approved (issue 35). Weights ship as a signed OCI image mounted as an image volume (owner
+# ruling on issue 49); verify-innovox-signatures checks the signature, this policy checks the approval.
+#
+# Issued decisions are listed in ConfigMap kyverno/model-intake-decisions (model-intake-decisions.yaml), one entry
+# per decision: <decision ID>: <weights image by digest>. The list changes only through Git review. A pod passes
+# when its annotation innovox.uk/intake-record is a listed ID and every image volume it mounts is exactly the
+# image that ID names. If the list cannot be read the policy errors and the pod is refused (failurePolicy Fail).
+#
+# Model servers are matched wherever they run: every pod in namespace models, and any pod in any namespace that
+# runs a vLLM image.
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
@@ -9,6 +18,7 @@ metadata:
     policies.kyverno.io/category: Model supply chain
 spec:
   validationActions: [Deny]
+  failurePolicy: Fail
   evaluation:
     background:
       enabled: true
@@ -19,11 +29,33 @@ spec:
         operations: ["CREATE", "UPDATE"]
         resources: ["pods"]
   matchConditions:
-    - name: models-namespace
-      expression: object.metadata.namespace == "models"
+    - name: model-server
+      expression: >-
+        object.metadata.namespace == "models" ||
+        (object.spec.containers + object.spec.?initContainers.orValue([]) +
+        object.spec.?ephemeralContainers.orValue([])).exists(c, c.image.startsWith("docker.io/vllm/"))
+  variables:
+    - name: record
+      expression: object.metadata.?annotations[?"innovox.uk/intake-record"].orValue("")
+    - name: decisions
+      expression: >-
+        resource.Get("v1", "configmaps", "kyverno", "model-intake-decisions").?data.orValue({})
+    - name: approved
+      expression: variables.decisions[?variables.record].orValue("")
+    - name: weights
+      expression: >-
+        object.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
   validations:
-    - expression: >-
-        object.metadata.?annotations[?"innovox.uk/intake-record"].orValue("").matches("^INT-[0-9]{8}-[0-9a-f]{8}$")
+    - expression: variables.record.matches("^INT-[0-9]{8}-[0-9a-f]{8}$")
       message: >-
         Model pods must carry annotation innovox.uk/intake-record with an approved decision ID
         (INT-YYYYMMDD-xxxxxxxx).
+    - expression: variables.record in variables.decisions
+      messageExpression: >-
+        "Intake decision " + variables.record + " was not issued: it is not in ConfigMap kyverno/model-intake-decisions."
+    - expression: >-
+        size(variables.weights) > 0 &&
+        variables.weights.all(ref, ref == variables.approved)
+      messageExpression: >-
+        "Model pods must mount the weights that decision " + variables.record +
+        " approved, as an image volume: " + variables.approved

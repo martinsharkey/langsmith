@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,20 +63,41 @@ def looks_like_pickle(path: Path) -> bool:
     return head[:2] in PICKLE_MAGICS or head == ZIP_MAGIC
 
 
+def walk(root: Path) -> tuple[list[Path], list[str]]:
+    """Every entry under root, classified without following links. Returns (regular files, problems).
+
+    Path.rglob and is_file() skip symlinked directories and non-regular files silently, so anything they skip
+    would be served unchecked. Here each entry is examined with lstat: directories are descended into, regular
+    files are returned, and everything else (symbolic links, FIFOs, sockets, devices) is a problem."""
+    files: list[Path] = []
+    problems: list[str] = []
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        for entry in sorted(directory.iterdir()):
+            rel = entry.relative_to(root).as_posix()
+            mode = entry.lstat().st_mode
+            if stat.S_ISLNK(mode):
+                problems.append(f"{rel}: symbolic links are not accepted")
+            elif stat.S_ISDIR(mode):
+                pending.append(entry)
+            elif stat.S_ISREG(mode):
+                files.append(entry)
+            else:
+                problems.append(f"{rel}: not a regular file or directory, and is refused")
+    return sorted(files), problems
+
+
 def scan_weights(weights_dir: Path, weight_ext: list[str], aux_ext: list[str], forbidden_ext: list[str]):
     """Scan a model directory. Returns (records, problems)."""
     records: list[FileRecord] = []
-    problems: list[str] = []
     if not weights_dir.is_dir():
         return records, [f"weights directory {weights_dir} does not exist"]
-    files = sorted(p for p in weights_dir.rglob("*") if p.is_file())
-    if not files:
+    files, problems = walk(weights_dir)
+    if not files and not problems:
         return records, ["weights directory is empty"]
     for path in files:
         rel = path.relative_to(weights_dir).as_posix()
-        if path.is_symlink():
-            problems.append(f"{rel}: symbolic links are not accepted")
-            continue
         ext = path.suffix.lower()
         if ext in forbidden_ext:
             problems.append(f"{rel}: format {ext} can carry executable pickle code and is refused")

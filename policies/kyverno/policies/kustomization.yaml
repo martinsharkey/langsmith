@@ -6,3 +6,4 @@ resources:
   - disallow-latest-tag.yaml
   - verify-innovox-signatures.yaml
   - require-model-intake-record.yaml
+  - model-intake-decisions.yaml

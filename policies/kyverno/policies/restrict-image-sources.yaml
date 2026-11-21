@@ -28,6 +28,11 @@ spec:
       expression: >-
         object.spec.containers + object.spec.?initContainers.orValue([]) +
         object.spec.?ephemeralContainers.orValue([])
+    - name: images
+      # Container images, and image volumes (spec.volumes[*].image.reference), which carry model weights.
+      expression: >-
+        variables.containers.map(c, c.image) +
+        object.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
     - name: allowed
       expression: |-
         [
@@ -68,10 +73,15 @@ spec:
         // Per-deployment store started by the LangGraph operator for each agent deployment.
         "docker.io/pgvector/pgvector:",
         "harbor.site.example/innovox/",
+        // Tekton Pipelines and Chains (platform/manifests/tekton), pinned by digest in the vendored releases.
+        "ghcr.io/tektoncd/pipeline/",
+        "ghcr.io/tektoncd/chains/",
+        // The shell image the Tekton controller gives TaskRun steps (-shell-image in the pipelines release).
+        "cgr.dev/chainguard/busybox@sha256:19f02276bf8dbdd62f069b922f10c65262cc34b710eea26ff928129a736be791",
         ]
   validations:
     # Istio's gateway chart ships the placeholder image "auto"; the sidecar injector replaces it, and the injected
     # Pod is checked again against this list.
     - expression: >-
-        variables.containers.all(c, c.image == "auto" || variables.allowed.exists(prefix, c.image.startsWith(prefix)))
+        variables.images.all(image, image == "auto" || variables.allowed.exists(prefix, image.startsWith(prefix)))
       message: "Image source is not on the platform allowlist (policies/kyverno/policies/restrict-image-sources.yaml)."

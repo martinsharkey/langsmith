@@ -25,13 +25,18 @@ spec:
       expression: >-
         object.spec.containers + object.spec.?initContainers.orValue([]) +
         object.spec.?ephemeralContainers.orValue([])
+    - name: images
+      # Container images, and image volumes (spec.volumes[*].image.reference), which carry model weights.
+      expression: >-
+        variables.containers.map(c, c.image) +
+        object.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
   validations:
     # The tag is whatever follows a colon in the last path segment, so a registry port is not mistaken for one.
     # "auto" is Istio's injection placeholder.
     - expression: >-
-        variables.containers.all(c, c.image == "auto" || c.image.contains("@sha256:") ||
-        c.image.split("/")[size(c.image.split("/")) - 1].contains(":"))
+        variables.images.all(image, image == "auto" || image.contains("@sha256:") ||
+        image.split("/")[size(image.split("/")) - 1].contains(":"))
       message: "Images must carry an explicit tag or digest."
     - expression: >-
-        variables.containers.all(c, c.image.contains("@sha256:") || !c.image.endsWith(":latest"))
+        variables.images.all(image, image.contains("@sha256:") || !image.endsWith(":latest"))
       message: "The 'latest' tag is not allowed."

@@ -1,4 +1,7 @@
 # Single source of pinned versions. Checked against upstream tags on 2026-11-11.
+# scripts/check_versions.py (gate PR, job lint) fails when a pin elsewhere disagrees with this file: Argo CD
+# Applications, images in platform/manifests, vendored releases (by SHA-256), CI tool versions and hashed CI
+# requirement files. Keys are unique across groups.
 # Renovate (renovate.json) proposes upgrades as pull requests; every upgrade passes gates PR, E1 and E2.
 kubernetes:
   rke2: v1.37.2+rke2r1
@@ -7,9 +10,13 @@ gitops:
   argo-cd-chart: 10.18.0            # https://argoproj.github.io/argo-helm
 platform:
   cert-manager-chart: v1.21.3       # https://charts.jetstack.io
+  trust-manager-chart: v0.26.0      # https://charts.jetstack.io
+  local-path-provisioner: v0.0.37   # github.com/rancher/local-path-provisioner (git tag, chart in the repo)
   external-secrets-chart: 2.15.0    # https://charts.external-secrets.io
   openbao-chart: 0.30.7             # https://openbao.github.io/openbao-helm  (OpenBao v2.7.2)
   rook-ceph-chart: v1.21.2          # https://charts.rook.io/release
+  ceph-image: quay.io/ceph/ceph:v20.2.5
+  aws-cli-image: docker.io/amazon/aws-cli:2.40.1   # bucket creation job (platform/manifests/rook)
   cloudnative-pg-chart: 0.29.1      # https://cloudnative-pg.github.io/charts
   postgresql-image: ghcr.io/cloudnative-pg/postgresql:18
   valkey-image: docker.io/valkey/valkey:9.1.3
@@ -33,7 +40,20 @@ supply-chain:
   cosign: v3.1.4
   trivy: v0.76.2
   tekton-pipelines: v1.18.0
+  # SHA-256 of release.yaml as published, vendored in platform/manifests/tekton/vendor/
+  tekton-pipelines-sha256: 029c8400e42d0fcd4fc669140d382af1f1d8ae86202b710d6197ae22bd48be5f
   tekton-chains: v0.30.0
+  tekton-chains-sha256: c42ae4c77db8fdc4f41339c88ffb59ce918559942b185b80628ceb7b8a7ebdf6
   dependency-track-chart: 2.10.0     # https://dependencytrack.github.io/helm-charts  (app 5.2.2)
   opentofu: v1.13.9
   nutanix-provider: 2.5.0
+ci-tools:
+  # Release assets are also pinned by SHA-256 in .github/tool-checksums.txt (scripts/fetch-tool.sh).
+  kubeconform: v0.7.0
+  kyverno-cli: v1.19.2
+  gitleaks: v8.30.1
+  helm: v3.22.1
+  # Python tools; their dependencies are pinned with hashes in .github/requirements/.
+  yamllint: 1.38.0
+  pyyaml: 6.0.3
+  langgraph-cli: 0.4.42

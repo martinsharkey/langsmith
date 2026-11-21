@@ -22,7 +22,8 @@ import sys
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-THIS_REPO = "https://github.com/martinsharkey/langsmith.git"
+# This repository, as Application files name it before and after platform/overlays/release replaces the placeholder.
+THIS_REPO = ("https://github.com/martinsharkey/langsmith.git", "https://git.invalid/platform.git")
 
 
 def load_versions() -> tuple[dict[str, str], list[str]]:
@@ -57,7 +58,7 @@ def check_applications(versions: dict[str, str]) -> list[str]:
             name = app["metadata"]["name"]
             spec = app["spec"]
             for src in spec.get("sources") or [spec["source"]]:
-                if src["repoURL"] == THIS_REPO:
+                if src["repoURL"] in THIS_REPO:
                     continue
                 chart = src.get("chart", "")
                 revision = str(src["targetRevision"])
