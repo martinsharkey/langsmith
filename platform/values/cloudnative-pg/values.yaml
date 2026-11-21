@@ -1,3 +1,3 @@
 replicaCount: 2
 monitoring:
-  podMonitorEnabled: false  # declared in kube-prometheus-stack (additionalPodMonitors): its CRD arrives in a later wave
+  podMonitorEnabled: false  # in platform/manifests/monitoring (wave 7): the CRD comes later

@@ -1,32 +1,4 @@
 prometheus:
-  # Monitors for charts that sync in earlier waves than this one, so cannot ship their own (their CRD comes from
-  # this chart). Same selectors and endpoints the cert-manager and CloudNativePG charts render; declared here they
-  # also carry this release's label, which the Prometheus selector requires.
-  additionalServiceMonitors:
-    - name: cert-manager
-      jobLabel: app.kubernetes.io/name
-      namespaceSelector:
-        matchNames: [cert-manager]
-      selector:
-        matchExpressions:
-          - {key: app.kubernetes.io/name, operator: In, values: [cainjector, cert-manager, webhook]}
-          - {key: app.kubernetes.io/instance, operator: In, values: [cert-manager]}
-          - {key: app.kubernetes.io/component, operator: In, values: [cainjector, controller, webhook]}
-      endpoints:
-        - targetPort: http-metrics
-          path: /metrics
-          interval: 60s
-          scrapeTimeout: 30s
-  additionalPodMonitors:
-    - name: cloudnative-pg
-      namespaceSelector:
-        matchNames: [cnpg-system]
-      selector:
-        matchLabels:
-          app.kubernetes.io/instance: cloudnative-pg
-          app.kubernetes.io/name: cloudnative-pg
-      podMetricsEndpoints:
-        - port: metrics
   prometheusSpec:
     # LangChain's scrape configuration for LangSmith services (langsmith-collector guide), unchanged except for
     # the namespace.
