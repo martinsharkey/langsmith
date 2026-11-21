@@ -1,6 +1,9 @@
-# Mode B1 (connected, OFFICIAL-SENSITIVE). Two external destinations only (AD-45):
-# - LangChain's beacon, which an online licence requires (licence check, subscription and usage reporting). Several
-#   LangSmith back-end services call it, so the rule covers the namespace.
+# Mode B1 (connected, OFFICIAL-SENSITIVE). LangSmith reaches two external destinations only (AD-45):
+# - LangChain's beacon, which an online licence requires ("Egress to https://beacon.langchain.com is required",
+#   docs.langchain.com/langsmith/self-host-egress, read 2026-11-21). The page does not say which services call it,
+#   so the rule allows the workloads the chart gives the licence key, and no others: Agent Server deployments,
+#   the operator, the frontend and the per-deployment databases are denied (deny-world-egress.yaml).
+#   tests/config/check_platform.py --rendered fails if this list and the rendered chart disagree.
 # - The UK model endpoints the customer has approved, reachable only from the LLM Gateway pods.
 # Add each approved endpoint to BOTH the gateway rule below and the Istio ServiceEntry (the mesh refuses
 # unregistered hosts).
@@ -11,7 +14,32 @@ metadata:
   name: langsmith-licence-beacon
   namespace: langsmith
 spec:
-  endpointSelector: {}
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - langsmith-agent-gateway
+          - langsmith-backend
+          - langsmith-backend-auth-bootstrap
+          - langsmith-backend-backfill-check
+          - langsmith-backend-migrations
+          - langsmith-e2e-test
+          - langsmith-host-backend
+          - langsmith-ingest-queue
+          - langsmith-listener
+          - langsmith-platform-backend
+          - langsmith-queue
+          - langsmith-smithdb-cluster-manager
+          - langsmith-smithdb-compaction
+          - langsmith-smithdb-compaction-worker
+          - langsmith-smithdb-ingestion
+          - langsmith-smithdb-metastore-migration
+          - langsmith-smithdb-query
+          - langsmith-standalone-insights-api-server
+          - langsmith-standalone-insights-queue
+          - langsmith-standalone-polly-api-server
+          - langsmith-standalone-polly-queue
   egress:
     - toFQDNs:
         - matchName: beacon.langchain.com
