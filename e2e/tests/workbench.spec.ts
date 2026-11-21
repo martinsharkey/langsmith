@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 
-const PASSWORD = "e2e-test-only";
+const PASSWORD = "e2e-test-only-password";
 const ORIGIN = "http://localhost:3000";
 const STUB_MODEL = "http://127.0.0.1:9000";
 

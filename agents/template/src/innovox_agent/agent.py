@@ -35,11 +35,28 @@ cites the document keys you used. If nothing relevant is found, say so."""
 
 
 def memory_namespace(runtime: Any) -> tuple[str, ...]:
-    """Long-term memory is scoped to the assistant and the signed-in user (LangChain's recommended scoping)."""
+    """Long-term memory is scoped to the assistant and the signed-in user (LangChain's recommended scoping).
+
+    A run with no user identity (a cron run, a misconfigured deployment) gets no memory rather than a namespace
+    shared with every other such run (T-13, CTL-15). `INNOVOX_ALLOW_ANONYMOUS_MEMORY=1` allows a shared local
+    namespace for development without sign-in only. PermissionError, not AttributeError: Deep Agents' StoreBackend
+    re-raises an AttributeError from the factory as a different error when there is no runtime.
+    """
     info = getattr(runtime, "server_info", None)
     user = getattr(getattr(info, "user", None), "identity", None)
     assistant = getattr(info, "assistant_id", None)
-    return (str(assistant or "local"), str(user or "anonymous"), "memories")
+    if not user:
+        if not load().allow_anonymous_memory:
+            raise PermissionError("Long-term memory needs a signed-in user; this run has no user identity")
+        user = "anonymous"
+    return (str(assistant or "local"), str(user), "memories")
+
+
+def approval_required(extra_tools: Sequence[Any], read_only: frozenset[str]) -> dict[str, bool]:
+    """The built-in tools that need approval, plus every MCP tool the deployment has not named read-only.
+
+    MCP tools fail closed: a newly allowlisted tool pauses for a person until someone declares it read-only."""
+    return {**APPROVAL_REQUIRED, **{tool.name: True for tool in extra_tools if tool.name not in read_only}}
 
 
 def build_agent(
@@ -75,7 +92,7 @@ def build_agent(
         ),
         # Planning is opt-in since Deep Agents 0.7; the workbench renders the plan from the `todos` state.
         middleware=[TodoListMiddleware()],
-        interrupt_on=APPROVAL_REQUIRED,
+        interrupt_on=approval_required(extra_tools, cfg.mcp_read_only_tools),
         name="innovox-task-agent",
         **kwargs,
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the end-to-end stack on localhost: Keycloak (test realm), the stub model, the example MCP server, the template agent on LangChain's
+# Starts the end-to-end stack on localhost: Keycloak (the production realm with test users), the stub model, the example and notes MCP servers, the template agent on LangChain's
 # local developer server, and the workbench. Logs go to e2e/logs. Used by CI and for local runs.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,10 +15,18 @@ wait_for() {  # wait_for <name> <url> [seconds]
   echo "timed out waiting for $name ($url)"; return 1
 }
 
+WORKBENCH_PUBLIC_URL=http://localhost:3000
+# Test-only client secret, used for both clients' `${...}` placeholders in the realm that ships.
+E2E_CLIENT_SECRET=e2e-test-only
+
+# The realm that ships (platform/manifests/keycloak), with test users from e2e/keycloak (issue #44).
+python3 "$root/e2e/keycloak/realm_from_manifest.py" "$root/platform/manifests/keycloak/realm-langsmith.yaml" \
+  "$WORKBENCH_PUBLIC_URL" "$logs/keycloak-import"
 docker rm -f e2e-keycloak >/dev/null 2>&1 || true
 docker run -d --name e2e-keycloak -p 8080:8080 \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
-  -v "$root/e2e/keycloak:/opt/keycloak/data/import:ro" \
+  -e WORKBENCH_CLIENT_SECRET="$E2E_CLIENT_SECRET" -e LANGSMITH_CLIENT_SECRET="$E2E_CLIENT_SECRET" \
+  -v "$logs/keycloak-import:/opt/keycloak/data/import:ro" \
   "$KEYCLOAK_IMAGE" start-dev --import-realm >/dev/null
 
 python3 "$root/e2e/stub_model.py" 9000 >"$logs/stub-model.log" 2>&1 &
@@ -44,8 +52,8 @@ done
 
 (
   cd "$root/workbench"
-  AGENT_SERVER_URL=http://127.0.0.1:2024 WORKBENCH_PUBLIC_URL=http://localhost:3000 \
-  OIDC_ISSUER=http://localhost:8080/realms/langsmith OIDC_CLIENT_ID=workbench OIDC_CLIENT_SECRET=e2e-test-only \
+  AGENT_SERVER_URL=http://127.0.0.1:2024 WORKBENCH_PUBLIC_URL="$WORKBENCH_PUBLIC_URL" \
+  OIDC_ISSUER=http://localhost:8080/realms/langsmith OIDC_CLIENT_ID=workbench OIDC_CLIENT_SECRET="$E2E_CLIENT_SECRET" \
   NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=localhost \
   npm start >"$logs/workbench.log" 2>&1 &
 )

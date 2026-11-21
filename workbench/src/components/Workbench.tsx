@@ -6,9 +6,10 @@
 import { useStream } from "@langchain/react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
+import { type Choice, type Review, decisionsFor, reviewsOf } from "@/lib/decisions.ts";
+import { isNotification } from "@/lib/messages.ts";
+
 type Todo = { content: string; status: "pending" | "in_progress" | "completed" };
-type ActionRequest = { name: string; args: Record<string, unknown>; description?: string };
-type Decision = { type: "approve" } | { type: "reject"; message: string };
 type AnyMessage = {
   id?: string;
   type?: string;
@@ -20,12 +21,6 @@ type AnyMessage = {
 // Deep Agents records each background (async subagent) task in the `async_tasks` state channel.
 type AsyncTask = { task_id: string; agent_name: string; status: string };
 const FINISHED = new Set(["success", "error", "cancelled", "timeout", "interrupted"]);
-
-// A background task reports back with a message Deep Agents labels as a notification; it is not something the
-// user typed, so it is not shown as one.
-function isNotification(message: AnyMessage): boolean {
-  return Boolean(message.additional_kwargs?.deepagents_notification) || textOf(message.content).includes("<task-notification>");
-}
 
 const THREAD_KEY = "wb.threadId";
 
@@ -41,12 +36,6 @@ function textOf(content: unknown): string {
 
 function kindOf(message: AnyMessage): string {
   return message.type ?? message.getType?.() ?? "";
-}
-
-function actionRequests(interrupt: unknown): ActionRequest[] {
-  const value = (interrupt as { value?: Record<string, unknown> } | undefined)?.value;
-  const list = (value?.actionRequests ?? value?.action_requests) as ActionRequest[] | undefined;
-  return Array.isArray(list) ? list : [];
 }
 
 export function Workbench({ userName, assistantId }: { userName: string; assistantId: string }) {
@@ -98,7 +87,7 @@ function Session(props: {
     transport: "sse",
   });
   const [draft, setDraft] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
+  const [choices, setChoices] = useState<(Choice | undefined)[]>([]);
   const [openFile, setOpenFile] = useState<string | null>(null);
 
   const values = (stream.values ?? {}) as {
@@ -136,9 +125,14 @@ function Session(props: {
   const todos = values.todos ?? [];
   const files = values.files ?? {};
   const subagents = useMemo(() => [...stream.subagents.values()], [stream.subagents]);
-  const pending = actionRequests(stream.interrupt);
+  const pending = reviewsOf(stream.interrupt);
+  const decisions = decisionsFor(pending, choices);
+  // A new interrupt starts with no decisions.
+  const interruptKey = JSON.stringify(pending.map((review) => review.action));
+  useEffect(() => setChoices([]), [interruptKey]);
   const messages = (stream.messages as unknown as AnyMessage[]).filter((m) => {
     const kind = kindOf(m);
+    // A background task's report is not something the user typed, so it is not shown as one.
     if (kind === "human") return !isNotification(m);
     return (kind === "ai" && (textOf(m.content) || m.tool_calls?.length));
   });
@@ -154,9 +148,17 @@ function Session(props: {
     void stream.submit({ messages: [{ type: "human", content: text }] });
   }
 
-  function decide(decision: Decision) {
-    const decisions = pending.map(() => decision);
-    setRejectReason("");
+  function choose(index: number, choice: Choice) {
+    setChoices((current) => {
+      const next = [...current];
+      next[index] = choice;
+      return next;
+    });
+  }
+
+  function submitDecisions() {
+    if (!decisions) return;
+    setChoices([]);
     void stream.respond({ decisions });
   }
 
@@ -202,26 +204,18 @@ function Session(props: {
         {pending.length > 0 && (
           <div className="approval" role="alertdialog" aria-label="Approval needed" data-testid="approval">
             <h2>Approval needed</h2>
-            {pending.map((action, i) => (
-              <div key={i} className="action">
-                <strong>{action.name}</strong>
-                <pre>{JSON.stringify(action.args, null, 2)}</pre>
-              </div>
+            {pending.map((review, i) => (
+              <ActionReview key={i} index={i} review={review} choice={choices[i]} onChoose={(choice) => choose(i, choice)} />
             ))}
-            <label>
-              Reason, if rejecting
-              <input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-            </label>
             <div className="buttons">
-              <button type="button" className="primary" data-testid="approve" onClick={() => decide({ type: "approve" })}>
-                Approve
-              </button>
               <button
                 type="button"
-                data-testid="reject"
-                onClick={() => decide({ type: "reject", message: rejectReason || "Rejected by the user" })}
+                className="primary"
+                data-testid="submit-decisions"
+                disabled={!decisions}
+                onClick={submitDecisions}
               >
-                Reject
+                {pending.length > 1 ? "Send decisions" : "Send decision"}
               </button>
             </div>
           </div>
@@ -324,6 +318,76 @@ function Session(props: {
         </section>
       </aside>
     </main>
+  );
+}
+
+/** One pending action with a decision of its own: approve, edit or reject, as its tool allows. */
+function ActionReview(props: { index: number; review: Review; choice: Choice | undefined; onChoose: (choice: Choice) => void }) {
+  const { index, review, choice, onChoose } = props;
+  const original = JSON.stringify(review.action.args, null, 2);
+  return (
+    <div className="action" data-testid="action" data-decision={choice?.type ?? "none"}>
+      <strong>{review.action.name}</strong>
+      {review.action.description ? <p className="muted">{review.action.description}</p> : null}
+      {choice?.type === "edit" ? (
+        <label>
+          Arguments (JSON)
+          <textarea
+            data-testid={`edit-args-${index}`}
+            rows={6}
+            value={choice.argsText}
+            onChange={(e) => onChoose({ type: "edit", argsText: e.target.value })}
+          />
+        </label>
+      ) : (
+        <pre>{original}</pre>
+      )}
+      {choice?.type === "reject" ? (
+        <label>
+          Reason
+          <input
+            data-testid={`reject-reason-${index}`}
+            value={choice.message}
+            onChange={(e) => onChoose({ type: "reject", message: e.target.value })}
+          />
+        </label>
+      ) : null}
+      <div className="buttons" role="radiogroup" aria-label={`Decision for ${review.action.name}`}>
+        {review.allowed.includes("approve") && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={choice?.type === "approve"}
+            data-testid={`approve-${index}`}
+            onClick={() => onChoose({ type: "approve" })}
+          >
+            Approve
+          </button>
+        )}
+        {review.allowed.includes("edit") && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={choice?.type === "edit"}
+            data-testid={`edit-${index}`}
+            onClick={() => onChoose({ type: "edit", argsText: original })}
+          >
+            Edit
+          </button>
+        )}
+        {review.allowed.includes("reject") && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={choice?.type === "reject"}
+            data-testid={`reject-${index}`}
+            onClick={() => onChoose({ type: "reject", message: "Rejected by the user" })}
+          >
+            Reject
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
