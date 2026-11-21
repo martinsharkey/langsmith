@@ -41,7 +41,6 @@ jobs:
       - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh redteam/tests/*.sh scripts/*.sh tests/*.sh e2e/*.sh
       - name: red-team scripts test the requested model class (stub garak, inspect and curl)
         run: redteam/tests/test-run-scripts.sh
-      # infra/tests arrives with PR 68 and tests/static_checks.py with PR 71; this workflow must merge after both.
       - run: python -m unittest discover -s infra/tests -v
       - name: data, model, logging and egress-test controls as committed
         run: python tests/static_checks.py
@@ -255,7 +254,6 @@ jobs:
         run: |
           scripts/fetch-tool.sh "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz" kyverno
           scripts/check_rendered_policies.py out/rendered-b1
-      # tests/config arrives with PR 70; this workflow must merge after it.
       - name: platform configuration checks against the rendered charts
         run: python3 tests/config/check_platform.py --rendered out/rendered-b1
       - name: the collector accepts its configuration

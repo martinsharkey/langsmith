@@ -34,4 +34,5 @@ resources:
   - platform-storage.yaml
   - platform-supply-chain.yaml
   - rook-ceph.yaml
+  - tekton.yaml
   - trust-manager.yaml

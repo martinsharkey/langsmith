@@ -11,8 +11,8 @@ metadata:
 spec:
   project: platform
   source:
-    repoURL: https://github.com/martinsharkey/langsmith.git
-    targetRevision: main
+    repoURL: https://git.invalid/platform.git
+    targetRevision: platform-release
     path: policies/kyverno/policies
   destination:
     server: https://kubernetes.default.svc

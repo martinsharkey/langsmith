@@ -124,6 +124,11 @@ bao kv put platform/workbench/oidc client_secret="$(openssl rand -hex 32)"   # K
 # Dependency-Track KEK, mode `config`: a base64-encoded 32-byte AES key (chart 2.10.0). It cannot be rotated
 # in place, so keep it with the other recovery material.
 bao kv put platform/dependency-track/kek kek="$(openssl rand -base64 32)"
+# Platform signing key for Tekton Chains (ADR 0066): the same encrypted cosign key as the GitHub environment
+# `agent-release`, brought on removable media by its custodian; never generated here.
+read -rs COSIGN_PASSWORD
+bao kv put platform/tekton-chains/signing cosign_key=@cosign.key cosign_password="$COSIGN_PASSWORD"
+unset COSIGN_PASSWORD
 ```
 `tests/config/check_platform.py` fails if an ExternalSecret reads a path or property this step does not write.
 After Rook creates the S3 users (wave 2), copy their keys into OpenBao (same shell and port-forward), then stop

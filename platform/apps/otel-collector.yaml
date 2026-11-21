@@ -20,8 +20,8 @@ spec:
       releaseName: otel-collector
       valueFiles:
       - $values/platform/values/otel-collector/values.yaml
-  - repoURL: https://github.com/martinsharkey/langsmith.git
-    targetRevision: main
+  - repoURL: https://git.invalid/platform.git
+    targetRevision: platform-release
     ref: values
   destination:
     server: https://kubernetes.default.svc

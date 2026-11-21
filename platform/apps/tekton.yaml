@@ -7,14 +7,14 @@ metadata:
   name: platform-tekton
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: '3'
+    argocd.argoproj.io/sync-wave: '5'
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: platform
   source:
-    repoURL: https://github.com/martinsharkey/langsmith.git
-    targetRevision: main
+    repoURL: https://git.invalid/platform.git
+    targetRevision: platform-release
     path: platform/manifests/tekton
   destination:
     server: https://kubernetes.default.svc
