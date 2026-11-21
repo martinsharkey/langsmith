@@ -21,6 +21,17 @@ for control in controls:
 
 threat_model = (root / "docs/assurance/threat-model.md").read_text()
 threat_ids = set(re.findall(r"^\| (T-\d+) \|", threat_model, flags=re.M))
+# Issue 66: a "CI" claim in the Proven column names the gate PR jobs or test files that fail without the control.
+ci_jobs = set(yaml.safe_load((root / ".github/workflows/ci.yml").read_text())["jobs"])
+for row in re.findall(r"^\| (T-\d+) \|.*\| ([^|]*) \|$", threat_model, flags=re.M):
+    tid, proven = row
+    for claim in re.finditer(r"\bCI\b(\s*\(([^)]*)\))?", proven):
+        names = re.findall(r"`([^`]+)`", claim.group(2) or "")
+        if not names:
+            errors.append(f"threat model {tid}: '{proven}' claims CI without naming a gate PR job or test file")
+        for name in names:
+            if name not in ci_jobs and not (root / name).exists():
+                errors.append(f"threat model {tid}: '{name}' is neither a gate PR job nor a file in this repository")
 for ref in set(re.findall(r"CTL-\d+", threat_model)) - control_ids:
     errors.append(f"threat model names unknown control {ref}")
 
