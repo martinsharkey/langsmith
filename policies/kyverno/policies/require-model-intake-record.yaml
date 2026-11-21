@@ -42,9 +42,12 @@ spec:
         resource.Get("v1", "configmaps", "kyverno", "model-intake-decisions").?data.orValue({})
     - name: approved
       expression: variables.decisions[?variables.record].orValue("")
+    - name: volumes
+      expression: object.spec.?volumes.orValue([])
     - name: weights
       expression: >-
-        object.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
+        type(variables.volumes) == null_type ? [] :
+        variables.volumes.filter(v, has(v.image)).map(v, v.image.reference)
   validations:
     - expression: variables.record.matches("^INT-[0-9]{8}-[0-9a-f]{8}$")
       message: >-

@@ -39,12 +39,12 @@ jobs:
       - name: every pinned version agrees with versions.yaml
         run: python scripts/check_versions.py
       - run: shellcheck infra/rke2/scripts/*.sh redteam/*/run.sh redteam/tests/*.sh scripts/*.sh tests/*.sh e2e/*.sh
+      - name: red-team scripts test the requested model class (stub garak, inspect and curl)
+        run: redteam/tests/test-run-scripts.sh
       # infra/tests arrives with PR 68 and tests/static_checks.py with PR 71; this workflow must merge after both.
       - run: python -m unittest discover -s infra/tests -v
       - name: data, model, logging and egress-test controls as committed
         run: python tests/static_checks.py
-      - name: red-team scripts test the requested model class (stub garak, inspect and curl)
-        run: redteam/tests/test-run-scripts.sh
 
   toolchain:
     # scripts/fetch-tool.sh refuses a download whose SHA-256 is wrong or not recorded (issue 41).
@@ -326,7 +326,9 @@ jobs:
           # The vendored Tekton releases are upstream manifests used unchanged (AD-40), like the Helm charts, which are
           # not scanned here either. Their workloads are checked by the admission and Pod Security checks in job
           # helm-render (scripts/check_rendered_policies.py), and the files by SHA-256 (scripts/check_versions.py).
-          ./trivy config --config trivy.yaml --skip-dirs platform/manifests/tekton/vendor --exit-code 1 .
+          # --skip-dirs replaces the list in trivy.yaml, so that list is repeated here; it belongs in trivy.yaml.
+          ./trivy config --config trivy.yaml --exit-code 1 \
+            --skip-dirs policies/kyverno/tests,tests/admission,platform/manifests/tekton/vendor .
 
   unit:
     runs-on: ubuntu-latest

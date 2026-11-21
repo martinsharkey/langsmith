@@ -25,11 +25,14 @@ spec:
       expression: >-
         object.spec.containers + object.spec.?initContainers.orValue([]) +
         object.spec.?ephemeralContainers.orValue([])
+    # A rendered chart can carry `volumes: null`; the API server drops it, the CLI does not.
+    - name: volumes
+      expression: object.spec.?volumes.orValue([])
     - name: images
       # Container images, and image volumes (spec.volumes[*].image.reference), which carry model weights.
       expression: >-
-        variables.containers.map(c, c.image) +
-        object.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
+        variables.containers.map(c, c.image) + (type(variables.volumes) == null_type ? [] :
+        variables.volumes.filter(v, has(v.image)).map(v, v.image.reference))
   validations:
     # The tag is whatever follows a colon in the last path segment, so a registry port is not mistaken for one.
     # "auto" is Istio's injection placeholder.
