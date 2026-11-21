@@ -16,6 +16,8 @@ locals {
       for i in range(cfg.count) : "${var.mode}-${pool}-${i + 1}" => merge(cfg, { pool = pool })
     }
   ]...)
+  # The first server (by name) starts the cluster; every other node joins through the registration address.
+  first_server = sort([for name, node in local.nodes : name if node.role == "server"])[0]
 }
 
 resource "nutanix_virtual_machine" "node" {
