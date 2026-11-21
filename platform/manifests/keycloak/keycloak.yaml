@@ -48,8 +48,7 @@ spec:
   # Forwarded headers are trusted only because nothing but the gateway can reach the HTTP port.
   networkPolicy:
     enabled: true
-    http:
-      - from:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: istio-ingress
+    http:                        # NetworkPolicy peers (CRD 26.8.2: ipBlock, namespaceSelector, podSelector)
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-ingress
