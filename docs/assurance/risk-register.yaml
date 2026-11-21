@@ -17,7 +17,7 @@ risks:
     threats: [T-08]
     likelihood: 2
     impact: 5
-    treatment: Gateway-only egress to named UK endpoints in B1; zero egress in B2, proven by flow logs
+    treatment: In B1, internet egress only for the gateway, licence holders and Argo CD, to named hosts (ADR 0045); zero egress in B2; proven by flow logs
     controls: [CTL-08]
     status: built-unproven
     issue: 16

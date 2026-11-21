@@ -12,7 +12,7 @@ CI shows it; **Operator** it depends on the operating organisation.
 | --- | --- | --- | --- |
 | A1 Governance | Decisions recorded as ADRs; gates PR, E1, E2, P1 | Built | Operator: named SRO and security roles |
 | A2 Risk management | Threat model and risk register in `docs/assurance` | Built | Review at each gate; operator risk appetite |
-| A3 Asset management | Versions pinned in one file; SBOM per image; ML-BOM per model | Built, part Proven | Dependency-Track (issue 20) |
+| A3 Asset management | Versions pinned in one file; SBOM per image; ML-BOM per model | Built, part Proven | Dependency-Track proven on the first installation (issue 8); remaining work in `docs/status.md` |
 | A4 Supply chain | Signed images, registry allowlist, model intake gate, SBOMs | Built, part Proven | LangChain signatures (issue 15); supplier assurance (CTL-18) |
 | B1 Policies and processes | SDLC mapped to NIST SSDF; runbooks | Built | Operator procedures |
 | B2 Identity and access control | Keycloak with MFA; custom auth on every agent; owner-scoped data | Built, part Proven | LangSmith SSO and roles (issue 13) |

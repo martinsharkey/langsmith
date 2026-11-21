@@ -145,7 +145,8 @@ kill "$pf"; rm platform-ca.crt; unset k s
 ## 5. Gate E1
 
 - [ ] Every Argo CD application Synced and Healthy.
-- [ ] `kubectl get clusterpolicy` shows all four Kyverno policies Ready; `tests/run-e2-checks.sh` admission checks refuse.
+- [ ] `kubectl get validatingpolicies,imagevalidatingpolicies` shows the four Kyverno policies (three ValidatingPolicy, one
+  ImageValidatingPolicy) Ready; `tests/run-e2-checks.sh` admission checks refuse.
 - [ ] LangSmith login through Keycloak with MFA; a trace from a test agent visible in LangSmith (SmithDB).
 - [ ] Evidence written to the `evidence` bucket: SBOMs, provenance, admission reports.
 

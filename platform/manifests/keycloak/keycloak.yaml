@@ -1,4 +1,4 @@
-# Keycloak (operator 26.8.2) with its own PostgreSQL 18 cluster. Identity for LangSmith (OIDC with PKCE) and for
+# Keycloak (operator 26.8.2) with its own PostgreSQL 18 cluster. Identity for LangSmith (OIDC, confidential client with a secret, AD-58) and for
 # Agent Server custom auth (CTL-07). MFA is required for every user (CTL-12).
 ---
 apiVersion: postgresql.cnpg.io/v1
