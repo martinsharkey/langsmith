@@ -116,7 +116,9 @@ bao kv put platform/langsmith/config langsmith_license_key=@licence.txt api_key_
 bao kv put platform/langsmith/postgres langsmith_password="$(openssl rand -hex 24)" smithdb_password="$(openssl rand -hex 24)"
 bao kv put platform/langsmith/valkey password="$(openssl rand -hex 24)"
 bao kv put platform/harbor/admin password="$(openssl rand -hex 24)"
-bao kv put platform/observability/opensearch admin_password="$(openssl rand -hex 24)"
+bao kv put platform/observability/opensearch admin_password="$(openssl rand -hex 24)" \
+  dashboards_password="$(openssl rand -hex 24)" fluent_bit_password="$(openssl rand -hex 24)" \
+  otel_collector_password="$(openssl rand -hex 24)"   # one put: kv put replaces every property
 bao kv put platform/observability/grafana admin_user=admin admin_password="$(openssl rand -hex 24)"
 bao kv put platform/keycloak/postgres password="$(openssl rand -hex 24)"
 bao kv put platform/models/vllm api_key="$(openssl rand -hex 32)"
@@ -149,5 +151,14 @@ kill "$pf"; rm platform-ca.crt; unset k s
 
 ## 6. Models
 
-Approve each model with `model-intake` (AD-46), copy the approved weights to the `model-weights` volume, set the
-decision ID on `platform/manifests/models/vllm.yaml`, and register the class as an LLM Gateway configuration.
+Weights are served as a signed OCI image mounted as an image volume (owner ruling on issue 49), never copied onto a
+volume. For each model:
+
+1. Run `model-intake check` and `evaluate` on the weights (`model-intake/README.md`).
+2. Package the checked weights directory as an OCI image, push it to `harbor.site.example/innovox/models/<class>`
+   and sign it with the platform key (ADR 0066); admission verifies image volumes. There is no script for this
+   step yet (issue 18). Note the digest.
+3. Run `model-intake decide --weights-image harbor.site.example/innovox/models/<class>@sha256:<digest>`, and add the
+   entry it prints to `policies/kyverno/policies/model-intake-decisions.yaml` through a reviewed pull request.
+4. In `platform/manifests/models/vllm.yaml`, set the decision ID (`innovox.uk/intake-record`) and the same image as
+   the weights volume, then register the class as an LLM Gateway configuration.

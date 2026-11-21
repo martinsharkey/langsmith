@@ -80,7 +80,11 @@ def check_runbook_secrets() -> None:
               for _, doc in manifests("platform/manifests") if doc.get("kind") == "ClusterSecretStore"}
     written = runbook_writes(RUNBOOK.read_text())
     needed = 0
-    for path, doc in manifests("platform/manifests"):
+    # ExternalSecrets in manifests, and in chart values as extraObjects (rendered by the chart as they are).
+    found = manifests("platform/manifests")
+    found += [(path, obj) for path, values in manifests("platform/values")
+              for obj in values.get("extraObjects") or [] if isinstance(obj, dict)]
+    for path, doc in found:
         if doc.get("kind") != "ExternalSecret":
             continue
         mount = stores.get(doc["spec"]["secretStoreRef"]["name"])
@@ -257,6 +261,40 @@ def check_rendered_argocd(rendered: Path) -> None:
     print(f"{check}: argocd-cm keys {sorted(k for k in cm if not k.startswith('resource.exclusions'))[:12]}")
 
 
+# --- #57: OpenSearch Dashboards signs in with its own account and verifies OpenSearch's certificate ------------------
+# Chart opensearch-dashboards 3.9.0 reads OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD from opensearchAccount.secret
+# (keys username, password); the image entrypoint turns OPENSEARCH_SSL_* variables into --opensearch.ssl.* options.
+
+def check_rendered_dashboards(rendered: Path) -> None:
+    check = "#57 dashboards"
+    deploy = next((d for d in load_all(rendered / "opensearch-dashboards.yaml") if d.get("kind") == "Deployment"), None)
+    if not deploy:
+        fail(check, "no rendered Deployment")
+        return
+    pod = deploy["spec"]["template"]["spec"]
+    container = pod["containers"][0]
+    env = {e["name"]: e for e in container.get("env") or []}
+    user = env.get("OPENSEARCH_USERNAME", {}).get("valueFrom", {}).get("secretKeyRef", {})
+    secret = user.get("name")
+    made = {}
+    for _, values in manifests("platform/values"):
+        for obj in values.get("extraObjects") or []:
+            if isinstance(obj, dict) and obj.get("kind") == "ExternalSecret":
+                tmpl = obj["spec"]["target"].get("template", {}).get("data", {})
+                made[obj["spec"]["target"]["name"]] = tmpl
+    if not secret:
+        fail(check, "OPENSEARCH_USERNAME is not set from a Secret (opensearchAccount.secret)")
+    elif made.get(secret, {}).get("username") != "kibanaserver" or "password" not in made.get(secret, {}):
+        fail(check, f"Secret {secret} must carry username kibanaserver and password (External Secrets template)")
+    ca = env.get("OPENSEARCH_SSL_CERTIFICATEAUTHORITIES", {}).get("value", "")
+    mounts = {m["mountPath"]: m["name"] for m in container.get("volumeMounts") or []}
+    volumes = {v["name"]: v.get("secret", {}).get("secretName") for v in pod.get("volumes") or []}
+    mounted = next((volumes.get(n) for path, n in mounts.items() if ca.startswith(path.rstrip("/") + "/")), None)
+    if mounted != "platform-ca-bundle":
+        fail(check, f"OPENSEARCH_SSL_CERTIFICATEAUTHORITIES ({ca or 'unset'}) is not a file from Secret platform-ca-bundle")
+    if env.get("OPENSEARCH_SSL_VERIFICATIONMODE", {}).get("value") != "full":
+        fail(check, "OPENSEARCH_SSL_VERIFICATIONMODE is not full")
+    print(f"{check}: user from {secret}, CA {ca or 'unset'}")
 # --- #33: which pods may reach the internet --------------------------------------------------------------------
 # Owner ruling on #33 (2026-11-21): in B1 only the LLM Gateway (approved model endpoints), the LangSmith services
 # that hold the licence (beacon) and Argo CD (git and chart sources) reach the internet, each to named hosts. In
@@ -510,6 +548,7 @@ def main() -> int:
         check_rendered_openbao(args.rendered)
         check_rendered_argocd(args.rendered)
         check_sync_waves(args.rendered)
+        check_rendered_dashboards(args.rendered)
         check_rendered_licence(args.rendered)
     for line in errors:
         print("ERROR", line)
