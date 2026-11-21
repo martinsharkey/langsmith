@@ -4,5 +4,5 @@ docker.io/langchain/langsmith-ace-backend:0.17.74
 docker.io/langchain/langsmith-backend:0.17.74
 docker.io/langchain/langsmith-frontend:0.17.74
 docker.io/langchain/smithdb:0.17.74
-docker.io/pgvector/pgvector:pg15
+docker.io/pgvector/pgvector:0.8.7-pg15-bookworm@sha256:e0b617fffc06dd37323ee99873c7a8683f19f1dce34633670262b0113ce32638
 docker.io/valkey/valkey:9.1.3
