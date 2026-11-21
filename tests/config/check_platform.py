@@ -240,7 +240,7 @@ def check_rendered_argocd(rendered: Path) -> None:
         elif root_ca.startswith("$") and ":" in root_ca:
             # `$<secret>:<key>` resolves only from a Secret labelled app.kubernetes.io/part-of=argocd.
             secret = root_ca[1:].split(":", 1)[0]
-            bundles = [d for _, d in manifests("platform/manifests/base") if d.get("kind") == "Bundle"
+            bundles = [d for _, d in manifests("platform/manifests/pki") if d.get("kind") == "Bundle"
                        and d["metadata"]["name"] == secret]
             labels = (bundles[0]["spec"]["target"]["secret"].get("metadata", {}).get("labels", {})
                       if bundles else {})
@@ -255,6 +255,85 @@ def check_rendered_argocd(rendered: Path) -> None:
     if not rbac.get("policy.csv", "").strip():
         fail(check, "argocd-rbac-cm policy.csv is empty: no group is mapped to a role")
     print(f"{check}: argocd-cm keys {sorted(k for k in cm if not k.startswith('resource.exclusions'))[:12]}")
+
+
+# --- #59: with the Application health check, a wave waits for the one before it; nothing may need a later wave ---
+
+def kustomize_resources(directory: Path) -> list[dict]:
+    """Objects listed under `resources:` of a plain kustomization (files or sub-directories), as Argo CD applies them."""
+    kustomization = directory / "kustomization.yaml"
+    if not kustomization.exists():
+        return [d for p in sorted(directory.glob("*.yaml")) for d in load_all(p)]
+    docs = []
+    for entry in yaml.safe_load(kustomization.read_text()).get("resources", []):
+        target = directory / entry
+        docs += kustomize_resources(target) if target.is_dir() else load_all(target) if target.exists() else []
+    return docs
+
+
+class RenderedLoader(yaml.SafeLoader):
+    """SafeLoader that reads a bare `=` (YAML 1.1 value tag, which some charts emit in a list) as the string '='."""
+
+
+RenderedLoader.add_constructor("tag:yaml.org,2002:value", yaml.SafeLoader.construct_yaml_str)
+
+
+def app_objects(app: dict, rendered: Path) -> list[dict] | None:
+    """What an Application applies: its rendered chart, or the manifests at its path in this repository."""
+    name = app["metadata"]["name"]
+    chart = rendered / f"{name}.yaml"
+    if chart.exists():
+        return [d for d in yaml.load_all(chart.read_text(), Loader=RenderedLoader) if isinstance(d, dict)]
+    paths = [s["path"] for s in (app["spec"].get("sources") or [app["spec"]["source"]])
+             if "path" in s and (ROOT / s["path"]).is_dir()]
+    return [d for p in paths for d in kustomize_resources(ROOT / p)] if paths else None
+
+
+def check_sync_waves(rendered: Path) -> None:
+    check = "#59 sync-waves"
+    waves, objects = {}, {}
+    for _, app in manifests("platform/apps"):
+        if app.get("kind") != "Application":
+            continue
+        name = app["metadata"]["name"]
+        waves[name] = int(app["metadata"].get("annotations", {}).get("argocd.argoproj.io/sync-wave", "0"))
+        found = app_objects(app, rendered)
+        if found is None:
+            # Manifests read straight from another repository (the Keycloak operator): what they provide cannot
+            # be seen here, so dependencies on them are not checked. Said plainly rather than passed silently.
+            print(f"NOTE {check}: Application {name} syncs manifests from another repository; not checked")
+        objects[name] = found or []
+    # What each Application provides: resource types (CRDs), storage classes and cluster issuers.
+    provides: dict[tuple[str, str], str] = {}
+    for name, docs in objects.items():
+        for d in docs:
+            kind = d.get("kind")
+            if kind == "CustomResourceDefinition":
+                spec = d.get("spec", {})
+                provides[("type", f"{spec.get('group')}/{spec.get('names', {}).get('kind')}")] = name
+            elif kind in ("StorageClass", "ClusterIssuer"):
+                provides[(kind, d["metadata"]["name"])] = name
+    checked = 0
+    for name, docs in objects.items():
+        needs: set[tuple[str, str]] = set()
+        for d in docs:
+            group = str(d.get("apiVersion", "")).rpartition("/")[0]
+            if group:
+                needs.add(("type", f"{group}/{d.get('kind')}"))
+            for key, value in walk(d):
+                if key in ("storageClassName", "storageClass") and isinstance(value, str):
+                    needs.add(("StorageClass", value))
+                elif key == "issuerRef" and isinstance(value, dict) and value.get("kind") == "ClusterIssuer":
+                    needs.add(("ClusterIssuer", value.get("name")))
+        for need in sorted(needs):
+            provider = provides.get(need)
+            if provider is None or provider == name:
+                continue  # built into Kubernetes or RKE2, bootstrapped with Argo CD, or carried by the same app
+            checked += 1
+            if waves[provider] >= waves[name]:
+                fail(check, f"Application {name} (wave {waves[name]}) needs {need[0]} {need[1]} from {provider} "
+                            f"(wave {waves[provider]}): with health gating it must come in an earlier wave")
+    print(f"{check}: {checked} cross-application dependencies checked across {len(waves)} Applications")
 
 
 def walk(node):
@@ -280,6 +359,7 @@ def main() -> int:
     if args.rendered:
         check_rendered_openbao(args.rendered)
         check_rendered_argocd(args.rendered)
+        check_sync_waves(args.rendered)
     for line in errors:
         print("ERROR", line)
     print(f"{len(errors)} error(s)")
