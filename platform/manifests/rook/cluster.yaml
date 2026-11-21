@@ -85,9 +85,31 @@ spec:
     replicated:
       size: 3
   preservePoolsOnDelete: true
+  # TLS only (issue 39): no plain port, so RGW listens on securePort alone. RGW has no mesh sidecar (rook-ceph is
+  # not injected), so it must terminate TLS itself. Rook accepts a kubernetes.io/tls Secret and then passes both
+  # the certificate and the key to the beast frontend.
   gateway:
-    port: 80
+    securePort: 443
+    sslCertificateRef: rgw-platform-tls
     instances: 2
+---
+# Server certificate for the object gateway, from the platform CA. Clients trust it through platform-ca-bundle,
+# which trust-manager writes to every namespace.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rgw-platform
+  namespace: rook-ceph
+spec:
+  secretName: rgw-platform-tls
+  usages: ["server auth"]
+  dnsNames:
+    - rook-ceph-rgw-platform
+    - rook-ceph-rgw-platform.rook-ceph.svc
+    - rook-ceph-rgw-platform.rook-ceph.svc.cluster.local
+  issuerRef:
+    name: platform-ca-issuer
+    kind: ClusterIssuer
 ---
 # Snapshots for CloudNativePG volume-snapshot backups (RKE2 ships the snapshot controller).
 apiVersion: snapshot.storage.k8s.io/v1
