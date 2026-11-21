@@ -41,6 +41,25 @@ export function getSession(id: string | undefined): Session | undefined {
   return session;
 }
 
+/** Removes every expired session, with its tokens, whether or not it is read again. Returns how many it removed. */
+export function sweepExpiredSessions(): number {
+  const cutoff = now();
+  let removed = 0;
+  for (const [id, session] of sessions) {
+    if (session.expiresAt <= cutoff) {
+      sessions.delete(id);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+// One sweep timer per process. `unref` lets the process exit without waiting for it.
+const SWEEP_INTERVAL_MS = 60_000;
+const sweeper = globalThis as unknown as { __wbSessionSweep?: ReturnType<typeof setInterval> };
+sweeper.__wbSessionSweep ??= setInterval(sweepExpiredSessions, SWEEP_INTERVAL_MS);
+sweeper.__wbSessionSweep.unref?.();
+
 export function updateSession(id: string, patch: Partial<Session>): void {
   const session = sessions.get(id);
   if (session) sessions.set(id, { ...session, ...patch });

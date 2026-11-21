@@ -21,6 +21,9 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: platform-ca
+          secret:
+            secretName: platform-ca-bundle
       containers:
         - name: s3
           image: docker.io/amazon/aws-cli:2.40.1
@@ -32,13 +35,18 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: platform-ca
+              mountPath: /etc/platform-ca
+              readOnly: true
           env:
             - name: HOME
               value: /tmp
             - name: AWS_DEFAULT_REGION
               value: us-east-1
             - name: EP
-              value: http://rook-ceph-rgw-platform.rook-ceph.svc
+              value: https://rook-ceph-rgw-platform.rook-ceph.svc
+            - name: AWS_CA_BUNDLE
+              value: /etc/platform-ca/ca-bundle.crt
             - name: LS_KEY
               valueFrom: {secretKeyRef: {name: rook-ceph-object-user-platform-langsmith, key: AccessKey}}
             - name: LS_SECRET

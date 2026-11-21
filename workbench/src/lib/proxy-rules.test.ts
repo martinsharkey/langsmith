@@ -35,8 +35,32 @@ test("cookies and caller authorization are never forwarded", () => {
   assert.equal(out.get("content-type"), "application/json");
 });
 
+const AGENT = "http://agent-server.internal:2024";
+
 test("upstream set-cookie is not returned to the browser", () => {
-  const out = responseHeaders(new Headers({ "set-cookie": "a=b", "content-type": "text/event-stream" }));
+  const out = responseHeaders(new Headers({ "set-cookie": "a=b", "content-type": "text/event-stream" }), AGENT);
   assert.equal(out.get("set-cookie"), null);
   assert.equal(out.get("content-type"), "text/event-stream");
+});
+
+test("the internal Agent Server address never reaches the browser", () => {
+  const out = responseHeaders(
+    new Headers({
+      "content-location": `${AGENT}/threads/t1/runs/r1`,
+      location: `${AGENT}/threads/t1/runs/r1?x=1`,
+    }),
+    AGENT,
+  );
+  // Content-Location stays a path on Agent Server's API, which the SDK resolves against its own base (/api/agent).
+  assert.equal(out.get("content-location"), "/threads/t1/runs/r1");
+  // Location is followed by the browser, so it points at the workbench's proxy route.
+  assert.equal(out.get("location"), "/api/agent/threads/t1/runs/r1?x=1");
+  for (const value of [...out.values()]) assert.doesNotMatch(value, /agent-server\.internal/);
+});
+
+test("relative locations are kept and locations on another host are dropped", () => {
+  const relative = responseHeaders(new Headers({ "content-location": "/threads/t1/runs/r1" }), AGENT);
+  assert.equal(relative.get("content-location"), "/threads/t1/runs/r1");
+  const elsewhere = responseHeaders(new Headers({ location: "https://elsewhere.example/x" }), AGENT);
+  assert.equal(elsewhere.get("location"), null);
 });

@@ -1,3 +1,4 @@
+import pytest
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -29,6 +30,33 @@ def test_memory_namespace_is_per_assistant_and_user():
         assistant_id = "a1"
         user = type("U", (), {"identity": "user-1"})()
     assert memory_namespace(type("R", (), {"server_info": Info()})()) == ("a1", "user-1", "memories")
+
+
+@pytest.mark.parametrize("runtime", [
+    None,  # outside a graph run
+    object(),  # no server information, as in a run without a user
+    type("R", (), {"server_info": type("I", (), {"assistant_id": "a1", "user": None})()})(),
+])
+def test_memory_without_a_user_fails_closed(monkeypatch, runtime):
+    monkeypatch.delenv("INNOVOX_ALLOW_ANONYMOUS_MEMORY", raising=False)
+    with pytest.raises(PermissionError):
+        memory_namespace(runtime)
+
+
+def test_a_run_without_a_user_cannot_touch_memory(monkeypatch):
+    """Through the graph: the memory route refuses the run instead of using a shared namespace."""
+    monkeypatch.delenv("INNOVOX_ALLOW_ANONYMOUS_MEMORY", raising=False)
+    store = InMemoryStore()
+    model = scripted(tool_call("write_file", {"file_path": "/memories/preferences.md", "content": "shared?"}),
+                     AIMessage(content="Saved."))
+    agent = build_agent(model=model, checkpointer=InMemorySaver(), store=store)
+    with pytest.raises(PermissionError):
+        agent.invoke({"messages": [{"role": "user", "content": "Remember this."}]}, run_config("t-no-user"))
+    assert store.search(("local", "anonymous", "memories")) == []
+
+
+def test_anonymous_memory_only_with_the_development_flag(monkeypatch):
+    monkeypatch.setenv("INNOVOX_ALLOW_ANONYMOUS_MEMORY", "1")
     assert memory_namespace(object()) == ("local", "anonymous", "memories")
 
 

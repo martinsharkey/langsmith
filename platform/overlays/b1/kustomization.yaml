@@ -5,6 +5,9 @@ kind: Kustomization
 resources:
   - ../../apps
   - mode-policies.yaml
+components:
+  # Repository and release tag for every Application (one place, #53).
+  - ../release
 patches:
   - target:
       kind: Application

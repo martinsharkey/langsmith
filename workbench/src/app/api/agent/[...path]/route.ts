@@ -37,7 +37,7 @@ async function handle(request: Request, context: Context): Promise<Response> {
     redirect: "manual",
     cache: "no-store",
   });
-  return new Response(upstream.body, { status: upstream.status, headers: responseHeaders(upstream.headers) });
+  return new Response(upstream.body, { status: upstream.status, headers: responseHeaders(upstream.headers, cfg.agentServerUrl) });
 }
 
 export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };

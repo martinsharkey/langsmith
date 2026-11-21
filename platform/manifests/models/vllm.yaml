@@ -1,17 +1,7 @@
 # Sovereign model service (AD-24): the upstream vLLM image as shipped, serving weights that passed the intake gate
-# (model-intake). Weights are loaded read-only from a volume populated at carry-in; the container has no egress.
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: model-weights
-  namespace: models
-spec:
-  accessModes: ["ReadOnlyMany"]
-  storageClassName: ceph-block
-  resources:
-    requests:
-      storage: 500Gi
+# (model-intake). The weights are a signed OCI artefact in the site Harbor, mounted read-only as an image volume
+# (owner ruling on issue 49, 2026-11-21). Image volumes are stable from Kubernetes 1.36; RKE2 v1.37.2 ships
+# containerd 2.3.7, which supports them from 2.1. The container has no egress.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -30,12 +20,13 @@ spec:
   template:
     metadata:
       annotations:
-        # Set to the decision ID that model-intake issued for the weights in /models/approved/class-m.
+        # Set to the decision ID that model-intake issued for the weights mounted at /models/approved/class-m.
         # Kyverno refuses the pod until a valid ID is present (require-model-intake-record, AD-46).
         innovox.uk/intake-record: SET-AT-INTAKE
       labels:
         app: vllm
         innovox.uk/model-class: m
+        innovox.uk/model-role: chat
     spec:
       nodeSelector:
         innovox.uk/pool: gpu
@@ -89,17 +80,20 @@ spec:
             periodSeconds: 10
           volumeMounts:
             - name: weights
-              mountPath: /models
+              mountPath: /models/approved/class-m
               readOnly: true
             - name: shm
               mountPath: /dev/shm
             - name: tmp
               mountPath: /tmp
       volumes:
+        # The approved artefact, by digest: set it to the digest model-intake recorded under the decision ID above.
+        # An image volume is always read-only and is pulled like a container image (node registry configuration,
+        # pull credentials). The artefact's layout under the mount path is proven at E1 (issue 49).
         - name: weights
-          persistentVolumeClaim:
-            claimName: model-weights
-            readOnly: true
+          image:
+            reference: harbor.site.example/innovox/models/class-m@sha256:SET-AT-INTAKE
+            pullPolicy: IfNotPresent
         - name: shm
           emptyDir:
             medium: Memory
@@ -122,21 +116,47 @@ spec:
       port: 8000
       targetPort: http
 ---
-# Only LangSmith (the LLM Gateway and Agent Server) may call the model service.
+# Chat models: only the LLM Gateway may call them (AD-59). Istio allows a request when one of the ALLOW policies that
+# select the workload matches, and refuses it otherwise, so every other LangSmith workload, Agent Server among them,
+# gets HTTP 403. The principal is the gateway's service account as chart 0.17.51 renders it.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: vllm-callers
+  name: vllm-chat-callers
   namespace: models
 spec:
   selector:
     matchLabels:
       app: vllm
+      innovox.uk/model-role: chat
   action: ALLOW
   rules:
     - from:
         - source:
-            namespaces: ["langsmith"]
+            principals: ["cluster.local/ns/langsmith/sa/langsmith-agent-gateway"]
       to:
         - operation:
-            paths: ["/v1/chat/completions", "/v1/completions", "/v1/embeddings", "/v1/models", "/health"]
+            paths: ["/v1/chat/completions", "/v1/completions", "/v1/models", "/health"]
+---
+# Embedding models: the one documented direct path (AD-59: the gateway serves chat formats only), for Agent Server
+# store embeddings. Agent Server pods run as the langsmith namespace's default service account, because the
+# operator's deployment template in chart 0.17.51 sets no serviceAccountName. Embeddings only, and only on workloads
+# labelled as embedding models; none is deployed yet.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: vllm-embedding-callers
+  namespace: models
+spec:
+  selector:
+    matchLabels:
+      app: vllm
+      innovox.uk/model-role: embedding
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/langsmith/sa/default"]
+      to:
+        - operation:
+            paths: ["/v1/embeddings", "/v1/models", "/health"]
