@@ -7,7 +7,7 @@ import { useStream } from "@langchain/react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { type Choice, type Review, decisionsFor, reviewsOf } from "@/lib/decisions.ts";
-import { isNotification } from "@/lib/messages.ts";
+import { isNotification, notificationIds } from "@/lib/messages.ts";
 
 type Todo = { content: string; status: "pending" | "in_progress" | "completed" };
 type AnyMessage = {
@@ -94,11 +94,13 @@ function Session(props: {
     todos?: Todo[];
     files?: Record<string, unknown>;
     async_tasks?: Record<string, AsyncTask>;
+    messages?: AnyMessage[];
   };
   // A background task finishes after the run that started it, so its status is read from the thread while any
   // task is still open.
   const [polledTasks, setPolledTasks] = useState<Record<string, AsyncTask> | null>(null);
   const [polledAnswer, setPolledAnswer] = useState<string | null>(null);
+  const [polledMessages, setPolledMessages] = useState<AnyMessage[]>([]);
   const streamTasks = values.async_tasks;
   const tasks = Object.values({ ...(streamTasks ?? {}), ...(polledTasks ?? {}) });
   const openTasks = tasks.some((task) => !FINISHED.has(task.status));
@@ -111,6 +113,7 @@ function Session(props: {
         if (!response.ok || stopped) return;
         const state = (await response.json()) as { values?: { async_tasks?: Record<string, AsyncTask>; messages?: AnyMessage[] } };
         setPolledTasks(state.values?.async_tasks ?? {});
+        setPolledMessages(state.values?.messages ?? []);
         const last = state.values?.messages?.at(-1);
         if (last && (last.type ?? "") === "ai") setPolledAnswer(textOf(last.content));
       } catch {
@@ -130,10 +133,12 @@ function Session(props: {
   // A new interrupt starts with no decisions.
   const interruptKey = JSON.stringify(pending.map((review) => review.action));
   useEffect(() => setChoices([]), [interruptKey]);
+  // A background task's report is not something the user typed, so it is not shown as one. Streamed copies lose
+  // its notification metadata, so it is also recognised by id in the thread values (streamed and polled).
+  const hiddenIds = notificationIds([...(values.messages ?? []), ...polledMessages]);
   const messages = (stream.messages as unknown as AnyMessage[]).filter((m) => {
     const kind = kindOf(m);
-    // A background task's report is not something the user typed, so it is not shown as one.
-    if (kind === "human") return !isNotification(m);
+    if (kind === "human") return !isNotification(m) && !(m.id && hiddenIds.has(m.id));
     return (kind === "ai" && (textOf(m.content) || m.tool_calls?.length));
   });
 

@@ -4,7 +4,14 @@
 
 import { type BaseMessage, getNotificationMetadata } from "@langchain/core/messages";
 
-export type MessageLike = { content: unknown; additional_kwargs?: Record<string, unknown> };
+export type MessageLike = { id?: string; content: unknown; additional_kwargs?: Record<string, unknown> };
+
+/** Ids of the notifications among thread-state messages. Messages assembled from the stream carry only the
+ * stream's own `additional_kwargs` (LangGraph SDK `assembledToBaseMessage`), so the workbench recognises a streamed
+ * notification by its id in the thread's values, where the metadata is kept. */
+export function notificationIds(stateMessages: readonly MessageLike[]): Set<string> {
+  return new Set(stateMessages.filter(isNotification).flatMap((m) => (m.id ? [m.id] : [])));
+}
 
 export function isNotification(message: MessageLike): boolean {
   const kwargs = message.additional_kwargs ?? {};
