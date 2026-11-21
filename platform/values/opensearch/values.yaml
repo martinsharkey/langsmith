@@ -192,7 +192,8 @@ extraObjects:
       data:
         - secretKey: password
           remoteRef: {key: observability/opensearch, property: otel_collector_password}
-  # For OpenSearch Dashboards (its values file must read it: opensearch.username kibanaserver and this password).
+  # For OpenSearch Dashboards: chart opensearch-dashboards 3.9.0 reads keys username and password from
+  # opensearchAccount.secret (platform/values/opensearch-dashboards/values.yaml).
   - apiVersion: external-secrets.io/v1
     kind: ExternalSecret
     metadata:
@@ -206,6 +207,11 @@ extraObjects:
       target:
         name: opensearch-dashboards-user
         creationPolicy: Owner
+        template:
+          engineVersion: v2
+          data:
+            username: kibanaserver
+            password: "{{ `{{ .password }}` }}"
       data:
         - secretKey: password
           remoteRef: {key: observability/opensearch, property: dashboards_password}
