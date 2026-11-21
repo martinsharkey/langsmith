@@ -67,22 +67,47 @@ export async function completeLogin(currentUrl: URL, login: LoginState): Promise
   };
 }
 
+// At most one refresh in flight per session. The browser sends parallel requests (stream, state, polling); with
+// refresh-token rotation, a second refresh with the same refresh token would fail and sign the user out.
+const globalRefreshes = globalThis as unknown as { __wbRefreshes?: Map<string, Promise<string | undefined>> };
+const refreshes: Map<string, Promise<string | undefined>> = (globalRefreshes.__wbRefreshes ??= new Map());
+
+async function refresh(sessionId: string, refreshToken: string): Promise<string | undefined> {
+  try {
+    const tokens = await client.refreshTokenGrant(await oidc(), refreshToken);
+    updateSession(sessionId, {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token ?? refreshToken,
+      accessTokenExpiresAt: now() + (tokens.expiresIn() ?? 60),
+    });
+    return tokens.access_token;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Returns a valid access token for the session, refreshing it when it is about to expire. */
 export async function accessTokenFor(sessionId: string): Promise<string | undefined> {
   const session = getSession(sessionId);
   if (!session) return undefined;
   if (session.accessTokenExpiresAt - now() > 30) return session.accessToken;
   if (!session.refreshToken) return undefined;
+  let pending = refreshes.get(sessionId);
+  if (!pending) {
+    pending = refresh(sessionId, session.refreshToken).finally(() => refreshes.delete(sessionId));
+    refreshes.set(sessionId, pending);
+  }
+  return pending;
+}
+
+/** Revokes the session's refresh token at Keycloak on sign-out (RFC 7009), so it cannot be used again. */
+export async function revokeTokens(session: Pick<Session, "refreshToken"> | undefined): Promise<void> {
+  if (!session?.refreshToken) return;
   try {
-    const tokens = await client.refreshTokenGrant(await oidc(), session.refreshToken);
-    updateSession(sessionId, {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? session.refreshToken,
-      accessTokenExpiresAt: now() + (tokens.expiresIn() ?? 60),
-    });
-    return tokens.access_token;
-  } catch {
-    return undefined;
+    await client.tokenRevocation(await oidc(), session.refreshToken, { token_type_hint: "refresh_token" });
+  } catch (error) {
+    // Sign-out continues; the token still expires with the Keycloak session.
+    console.warn("Refresh token revocation failed", error instanceof Error ? error.message : error);
   }
 }
 
