@@ -39,6 +39,10 @@ mirrors:
     endpoint: ["https://harbor.site.example"]
     rewrite:
       "^(.*)$": "ecr-public.aws.com/$1"
+  cgr.dev:
+    endpoint: ["https://harbor.site.example"]
+    rewrite:
+      "^(.*)$": "cgr.dev/$1"
 configs:
   harbor.site.example:
     tls:
