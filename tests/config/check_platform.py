@@ -308,6 +308,9 @@ def check_sync_waves(rendered: Path) -> None:
     for name, docs in objects.items():
         for d in docs:
             kind = d.get("kind")
+            if kind == "List":
+                # Argo CD v3.6.1 does not unwrap a List (gitops-engine kube.SplitYAML keeps it as one object).
+                fail(check, f"Application {name} renders a kind: List; Argo CD applies it as one object, not its items")
             if kind == "CustomResourceDefinition":
                 spec = d.get("spec", {})
                 provides[("type", f"{spec.get('group')}/{spec.get('names', {}).get('kind')}")] = name
