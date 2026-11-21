@@ -7,7 +7,7 @@ metadata:
   labels:
     innovox.uk/release-source: "true"   # first sourceRepos entry is set by platform/overlays/release
 spec:
-  description: Innovox LangSmith Defence platform (DP-AI-001-C)
+  description: Innovox Sovereign Agentic Platform (sap), mode B1
   sourceRepos:
     - https://git.invalid/platform.git
     - https://github.com/keycloak/keycloak-k8s-resources.git

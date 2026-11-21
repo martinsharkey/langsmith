@@ -2,9 +2,9 @@
 ---
 kind: ZarfPackageConfig
 metadata:
-  name: dp-ai-001-c-platform
+  name: sap-platform
   version: 0.2.0
-  description: Innovox sovereign agentic platform, open-source layer, for carry-in to a disconnected enclave (B2)
+  description: Innovox Sovereign Agentic Platform, open-source layer, for carry-in to a disconnected enclave (B2)
 components:
 - name: gitops-source
   required: true

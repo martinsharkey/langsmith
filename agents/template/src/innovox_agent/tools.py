@@ -9,7 +9,7 @@ from __future__ import annotations
 from langchain_core.tools import tool
 
 _CORPUS = {
-    "DP-AI-001": "Sovereign agentic platform: self-hosted LangSmith, deep agents, LLM Gateway, vLLM model classes.",
+    "DP-AI-001": "Sovereign Agentic Platform: self-hosted LangSmith, deep agents, LLM Gateway, vLLM model classes.",
     "AD-59": "Agents reach models only through the LLM Gateway using model classes.",
     "AD-57": "Every Agent Server deployment ships custom auth and a per-user store auth handler.",
 }

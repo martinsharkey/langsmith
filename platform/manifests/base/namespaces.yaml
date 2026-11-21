@@ -11,7 +11,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -21,7 +21,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -31,7 +31,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -41,7 +41,7 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -51,7 +51,7 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -61,7 +61,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -71,7 +71,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -81,7 +81,7 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -91,7 +91,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -101,7 +101,7 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -111,7 +111,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
     istio-injection: enabled
 ---
 apiVersion: v1
@@ -122,7 +122,7 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -132,7 +132,7 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -142,7 +142,7 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
     istio-injection: enabled
 ---
 apiVersion: v1
@@ -153,7 +153,7 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
     istio-injection: enabled
 ---
 apiVersion: v1
@@ -164,7 +164,7 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -174,7 +174,7 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -184,7 +184,7 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap
 ---
 apiVersion: v1
 kind: Namespace
@@ -194,4 +194,4 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
-    innovox.uk/platform: dp-ai-001-c
+    innovox.uk/platform: sap

@@ -2,7 +2,7 @@
 ---
 kind: ZarfPackageConfig
 metadata:
-  name: dp-ai-001-c-langsmith
+  name: sap-langsmith
   version: 0.17.51
   description: LangSmith chart and images, packaged apart so it follows LangChain's release cadence (AD-40). Needs an offline licence from LangChain (D-06).
 components:

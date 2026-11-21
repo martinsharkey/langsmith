@@ -7,7 +7,7 @@ metadata:
   name: platform
   namespace: argocd
 spec:
-  description: Innovox sovereign agentic platform, enclave (DP-AI-001-C, mode B2)
+  description: Innovox Sovereign Agentic Platform (sap), mode B2
   sourceRepos:
     - "*"
   destinations:

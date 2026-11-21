@@ -1,1 +1,1 @@
-"""Template deep agent for the Innovox sovereign agentic platform."""
+"""Template deep agent for the Innovox Sovereign Agentic Platform."""

@@ -34,7 +34,7 @@ flowchart LR
   AE[Agent engineer] -->|LangSmith UI, Studio| P
   RV[Reviewer] -->|annotation queues| P
   OP[Operator, security] -->|Argo CD, Grafana| P
-  P[["Sovereign agentic platform<br/>one installation per client"]]
+  P[["Sovereign Agentic Platform<br/>one installation per client"]]
   P -->|OIDC or SAML federation| IDP[Client identity provider]
   P -->|MCP| SYS[Client systems]
   P <-->|A2A, where approved| AG[Other agents]
