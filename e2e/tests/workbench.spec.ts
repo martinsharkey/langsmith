@@ -130,6 +130,13 @@ test("a background task runs on its own thread and reports back", async ({ page 
   await expect(page.getByTestId("messages")).toContainText("Launched async subagent");
   await expect(tasks.locator("li")).toHaveAttribute("data-status", "success", { timeout: 60_000 });
   await expect(page.getByTestId("messages")).toContainText("The background analysis has finished.");
+  // DIAGNOSTIC (temporary): what the thread state and the screen hold for human messages.
+  const threadId = await page.evaluate(() => window.sessionStorage.getItem("wb.threadId"));
+  const state = (await (await page.request.get(`/api/agent/threads/${threadId}/state`)).json()) as {
+    values: { messages: { id?: string; type?: string; additional_kwargs?: Record<string, unknown> }[] };
+  };
+  console.log("state", JSON.stringify(state.values.messages.map((m) => [m.type, m.id, Object.keys(m.additional_kwargs ?? {})])));
+  console.log("screen", JSON.stringify(await page.getByTestId("msg-human").evaluateAll((els) => els.map((e) => [e.getAttribute("data-message-id"), e.textContent?.slice(0, 60)]))));
   await expect(page.getByTestId("msg-human")).toHaveCount(1); // the task's report is not shown as a user message
 });
 

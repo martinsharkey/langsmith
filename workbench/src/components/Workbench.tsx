@@ -185,7 +185,7 @@ function Session(props: {
           {messages.map((m, i) => {
             const kind = kindOf(m);
             return (
-              <li key={m.id ?? i} className={`msg ${kind}`} data-testid={`msg-${kind}`}>
+              <li key={m.id ?? i} className={`msg ${kind}`} data-testid={`msg-${kind}`} data-message-id={m.id}>
                 <span className="role">{kind === "human" ? "You" : "Agent"}</span>
                 {textOf(m.content) && <p>{textOf(m.content)}</p>}
                 {kind === "ai" && m.tool_calls?.length ? (
