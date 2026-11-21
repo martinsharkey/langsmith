@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +53,29 @@ class FileChecks(unittest.TestCase):
         (self.dir / "link.json").symlink_to(self.dir / "model.safetensors")
         _, problems = scan_weights(self.dir, W, AUX, BAD)
         self.assertTrue(any("symbolic" in p for p in problems))
+
+    def test_symlinked_directory_refused(self):
+        write_safetensors(self.dir / "model.safetensors")
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        write_safetensors(Path(outside.name) / "extra.safetensors")
+        (self.dir / "shards").symlink_to(outside.name, target_is_directory=True)
+        _, problems = scan_weights(self.dir, W, AUX, BAD)
+        self.assertTrue(any(p.startswith("shards:") and "symbolic" in p for p in problems), problems)
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "needs a POSIX FIFO")
+    def test_non_regular_file_refused(self):
+        write_safetensors(self.dir / "model.safetensors")
+        os.mkfifo(self.dir / "pipe.json")
+        _, problems = scan_weights(self.dir, W, AUX, BAD)
+        self.assertTrue(any(p.startswith("pipe.json:") and "regular" in p for p in problems), problems)
+
+    def test_nested_files_are_scanned(self):
+        (self.dir / "sub").mkdir()
+        write_safetensors(self.dir / "sub" / "model.safetensors")
+        records, problems = scan_weights(self.dir, W, AUX, BAD)
+        self.assertEqual(problems, [])
+        self.assertEqual([r.path for r in records], ["sub/model.safetensors"])
 
     def test_manifest_is_stable(self):
         write_safetensors(self.dir / "a.safetensors")

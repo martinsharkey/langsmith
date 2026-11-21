@@ -23,7 +23,6 @@ docker.io/rook/ceph:v1.21.2
 docker.io/vllm/vllm-openai:v0.33.0
 ecr-public.aws.com/docker/library/redis:8.6.4-alpine
 ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1
-ghcr.io/cloudnative-pg/postgresql:18
 ghcr.io/cloudnative-pg/postgresql:18.7-202611201711-standard-trixie@sha256:5827829071060876c4029650c04183e4ee562da3ebb9e88c914d67c8dc8669d6
 ghcr.io/external-secrets/external-secrets:v2.15.0
 ghcr.io/jkroepke/kube-webhook-certgen:1.11.1
@@ -32,6 +31,11 @@ ghcr.io/kedacore/keda-metrics-apiserver:2.21.0
 ghcr.io/kedacore/keda:2.21.0
 ghcr.io/kyverno/readiness-checker:v1.19.2
 ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.163.2
+ghcr.io/tektoncd/chains/github.com/tektoncd/chains/cmd/controller:v0.30.0@sha256:eb11942a75f076212141b440ecec6497f7a4717fb653cde0c5ed04dae6be4d41
+ghcr.io/tektoncd/pipeline/controller-10a3e32792f33651396d02b6855a6e36:v1.18.0@sha256:3d0910d54c4f96d714c4926d6c2713d818e2eade2be25f1300b472cdc1e23916
+ghcr.io/tektoncd/pipeline/events-a9042f7efb0cbade2a868a1ee5ddd52c:v1.18.0@sha256:3a255940accf019c4cb6065068e68720a381934dbdcdc1137e390d56999e99fa
+ghcr.io/tektoncd/pipeline/resolvers-ff86b24f130c42b88983d3c13993056d:v1.18.0@sha256:206dec94a4de1675cd24461e482b56c322b28d4198c008e43814653c7123d68c
+ghcr.io/tektoncd/pipeline/webhook-d4749e605405422fd87700164e31b2d1:v1.18.0@sha256:98e1c1f9e42fd7755724eb9706ffb8acf1b339b88f56347136b6aebab2e44fc3
 quay.io/argoproj/argocd:v3.6.1
 quay.io/ceph/ceph:v20.2.5
 quay.io/cephcsi/ceph-csi-operator:v1.1.0

@@ -1,5 +1,14 @@
-# CTL-01 / AD-47. Images built by Innovox pipelines must carry a cosign signature from the platform signing key.
-# The public key is held in Secret kyverno/cosign-public-key (key cosign.pub). Offline: no transparency log.
+# CTL-01 / AD-47. Images built by Innovox pipelines must carry a cosign signature from the platform signing key
+# (ADR 0066). The public key is held in Secret kyverno/cosign-public-key (key cosign.pub). Offline: no transparency
+# log.
+#
+# Every image a pod runs or mounts is verified (issue 36): containers, init containers and ephemeral containers,
+# which Kyverno extracts itself as images.containers, images.initContainers and images.ephemeralContainers, and image
+# volumes (spec.volumes[*].image.reference), which carry model weights and which Kyverno does not extract, so they
+# are declared below under `images`. Source read: kyverno v1.19.2 pkg/cel/compiler/images.go (built-in extractors)
+# and pkg/image/verification/evaluator/policy.go (custom extractors are added to them, and every extracted image is
+# filtered by matchImageReferences, checked for a digest and covered by `required`). Tested against real signed and
+# unsigned images by gate PR job `signatures` (scripts/verify_signatures.py).
 # LangChain images are signed keyless with Sigstore; their attestor is added once LangChain confirms the signing
 # identity (issue 15).
 apiVersion: policies.kyverno.io/v1
@@ -20,6 +29,10 @@ spec:
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE"]
         resources: ["pods"]
+  images:
+    - name: imageVolumes
+      expression: >-
+        (object != null ? object : oldObject).spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)
   matchImageReferences:
     - glob: "harbor.site.example/innovox/*"
   validationConfigurations:
@@ -36,5 +49,6 @@ spec:
           insecureIgnoreSCT: true
   validations:
     - expression: >-
-        images.containers.map(image, verifyImageSignatures(image, [attestors.platform])).all(count, count > 0)
+        (images.containers + images.initContainers + images.ephemeralContainers + images.imageVolumes).map(image,
+        verifyImageSignatures(image, [attestors.platform])).all(count, count > 0)
       message: "Image is not signed by the platform signing key."

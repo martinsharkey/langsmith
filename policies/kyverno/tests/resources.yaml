@@ -39,6 +39,7 @@ spec:
     - name: app
       image: docker.io/langchain/langsmith-backend
 ---
+# Weights mounted as the OCI image volume that the issued decision names (AD-46, AD-47).
 apiVersion: v1
 kind: Pod
 metadata:
@@ -50,6 +51,97 @@ spec:
   containers:
     - name: vllm
       image: docker.io/vllm/vllm-openai:v0.33.0
+      volumeMounts:
+        - name: weights
+          mountPath: /models
+  volumes:
+    - name: weights
+      image:
+        reference: harbor.site.example/innovox/models/test-model@sha256:1111111111111111111111111111111111111111111111111111111111111111
+---
+# Well-formed decision ID that the intake gate never issued.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-model-unissued-record
+  namespace: models
+  annotations:
+    innovox.uk/intake-record: INT-20261111-ffffffff
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0
+      volumeMounts:
+        - name: weights
+          mountPath: /models
+  volumes:
+    - name: weights
+      image:
+        reference: harbor.site.example/innovox/models/test-model@sha256:1111111111111111111111111111111111111111111111111111111111111111
+---
+# Issued decision ID, but the pod mounts weights other than the approved artefact.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-model-other-weights
+  namespace: models
+  annotations:
+    innovox.uk/intake-record: INT-20261111-a1b2c3d4
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0
+      volumeMounts:
+        - name: weights
+          mountPath: /models
+  volumes:
+    - name: weights
+      image:
+        reference: harbor.site.example/innovox/models/test-model@sha256:2222222222222222222222222222222222222222222222222222222222222222
+---
+# Issued decision ID, but the weights do not come from the approved artefact.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-model-no-weights-volume
+  namespace: models
+  annotations:
+    innovox.uk/intake-record: INT-20261111-a1b2c3d4
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0
+---
+# A model server outside the models namespace is still a model server.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-vllm-outside-models
+  namespace: langsmith
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0
+---
+# Same, with a made-up record.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-vllm-outside-models-unissued
+  namespace: langsmith
+  annotations:
+    innovox.uk/intake-record: INT-20261111-ffffffff
+spec:
+  containers:
+    - name: vllm
+      image: docker.io/vllm/vllm-openai:v0.33.0
+      volumeMounts:
+        - name: weights
+          mountPath: /models
+  volumes:
+    - name: weights
+      image:
+        reference: harbor.site.example/innovox/models/test-model@sha256:1111111111111111111111111111111111111111111111111111111111111111
 ---
 apiVersion: v1
 kind: Pod
@@ -104,3 +196,32 @@ spec:
   containers:
     - name: vllm
       image: docker.io/vllm/vllm-openai:v0.33.0
+---
+# Image volumes are images too: their source is checked like a container's.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-image-volume-source
+  namespace: langsmith
+spec:
+  containers:
+    - name: app
+      image: docker.io/langchain/langsmith-backend:0.17.74
+  volumes:
+    - name: data
+      image:
+        reference: docker.io/someone/unvetted:1.0.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-image-volume-latest
+  namespace: langsmith
+spec:
+  containers:
+    - name: app
+      image: docker.io/langchain/langsmith-backend:0.17.74
+  volumes:
+    - name: data
+      image:
+        reference: harbor.site.example/innovox/models/test-model:latest

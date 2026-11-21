@@ -1,4 +1,4 @@
-# Monitors for charts that sync before kube-prometheus-stack provides the monitor CRDs (wave 6), so cannot ship
+# Monitors for charts that sync before kube-prometheus-stack provides the monitor CRDs (wave 7), so cannot ship
 # their own. Same selectors and endpoints the cert-manager and CloudNativePG charts render. The `release` label is
 # what the stack's Prometheus selects monitors by (serviceMonitorSelectorNilUsesHelmValues, chart default true).
 ---

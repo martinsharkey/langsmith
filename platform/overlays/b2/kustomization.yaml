@@ -18,3 +18,11 @@ patches:
       - op: add
         path: /spec/sources/0/helm/valueFiles/-
         value: $values/platform/values/langsmith/values-b2.yaml
+  # Harbor's Trivy scans offline in the enclave (issue 61).
+  - target:
+      kind: Application
+      name: harbor
+    patch: |-
+      - op: add
+        path: /spec/sources/0/helm/valueFiles/-
+        value: $values/platform/values/harbor/values-b2.yaml

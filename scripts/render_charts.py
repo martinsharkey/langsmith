@@ -3,6 +3,9 @@
 
 Usage: render_charts.py <mode: b1|b2> <output dir>
 Requires: helm, kubectl (for kustomize), PyYAML. Reads the mode overlay so patches (extra value files) apply.
+Applications that deploy plain manifests from this repository are rendered with kustomize, so their workloads are
+checked by the same admission and Pod Security checks as the charts. An Application file in platform/apps that the
+overlay does not list is rendered too, with a warning, so a workload is never left unchecked.
 """
 from __future__ import annotations
 
@@ -14,6 +17,8 @@ import sys
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# This repository, as Application files name it before and after platform/overlays/release replaces the placeholder.
+THIS_REPO = ("https://github.com/martinsharkey/langsmith.git", "https://git.invalid/platform.git")
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -30,15 +35,21 @@ def main() -> int:
     failures, summary, namespaces = [], [], {}
     # The enclave overlay names charts as OCI artefacts on a placeholder host (scripts/gen_airgap.py). CI renders
     # them from the upstream repository named in platform/apps, which is where the carried-in copy comes from.
-    upstream = {}
+    upstream, files = {}, {}
     for path in sorted((ROOT / "platform" / "apps").glob("*.yaml")):
         for doc in yaml.safe_load_all(path.read_text()):
             if doc and doc.get("kind") == "Application":
                 upstream[doc["metadata"]["name"]] = doc["spec"].get("sources") or [doc["spec"]["source"]]
+                files[doc["metadata"]["name"]] = doc
     apps = [a for a in yaml.safe_load_all(built.stdout) if a and a.get("kind") == "Application"]
+    for name in sorted(set(files) - {a["metadata"]["name"] for a in apps}):
+        print(f"::warning title=application not deployed::{name} is not listed in platform/apps/kustomization.yaml; "
+              "rendered so that its workloads are still checked")
+        apps.append(files[name])
     # Argo CD itself is installed before Argo CD exists (helm in B1, Zarf in B2); render it so its images are
     # policy-checked and carried in like the rest.
     versions = yaml.safe_load((ROOT / "versions.yaml").read_text())
+    kube_version = str(versions["kubernetes"]["kubernetes-api"])
     apps.append({"metadata": {"name": "argo-cd"}, "spec": {
         "destination": {"namespace": "argocd"},
         "source": {"repoURL": "https://argoproj.github.io/argo-helm", "chart": "argo-cd",
@@ -55,10 +66,18 @@ def main() -> int:
                 src.pop("path", None)
             helm = src.get("helm")
             if "chart" not in src and not (helm and "path" in src):
-                continue  # plain manifests are validated by the schemas job
+                if src["repoURL"] in THIS_REPO and "path" in src:
+                    res = run(["kubectl", "kustomize", str(ROOT / src["path"])])
+                    if res.returncode != 0:
+                        failures.append((name, res.stderr.strip()))
+                        continue
+                    (out / f"{name}.yaml").write_text(res.stdout)
+                    namespaces[name] = namespace
+                    summary.append((name, sum(1 for line in res.stdout.splitlines() if line.startswith("kind:"))))
+                continue  # a values reference ($values) or a source the schemas job validates
             release = (helm or {}).get("releaseName", name)
             cmd = ["helm", "template", release, "--namespace", namespace, "--include-crds",
-                   "--kube-version", "1.37.2"]
+                   "--kube-version", kube_version]
             if "chart" in src:
                 cmd += [src["chart"], "--repo", src["repoURL"], "--version", str(src["targetRevision"])]
             else:
