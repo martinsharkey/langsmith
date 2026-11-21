@@ -1,13 +1,14 @@
-# Innovox LangSmith Defence Platform
+# Innovox Sovereign Agentic Platform
 
-Deployable reference implementation of the Innovox **sovereign agentic platform** (DP-AI-001 Solution Architecture
-v2.1, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
+Deployable reference implementation of the Innovox **Sovereign Agentic Platform** (`sap`; design documents
+DP-AI-001 Solution Architecture v2.1 and the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
 platform where business users hand complex tasks to deep agents through a workbench, for UK defence and air-gapped
 sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
 free, open-source software, except LangSmith itself, which needs a licence from LangChain.
 
-> Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, chart render, schema and policy tests,
-> unit tests, agent image build and scan, and a browser end-to-end test) but has not yet been deployed on a cluster
+> Status: **delivery stage 2 (Alpha, B1)**, before gate E1 ([glossary](docs/glossary.md)). The code is validated
+> in CI (lint, chart render, schema and policy tests, unit tests, agent image build and scan, and a browser
+> end-to-end test) but has not yet been deployed on a cluster
 > or penetration tested. Work that needs a deployment is tracked in
 > [issue 25](https://github.com/martinsharkey/langsmith/issues/25). See [docs/status.md](docs/status.md).
 

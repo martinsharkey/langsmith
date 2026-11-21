@@ -150,9 +150,9 @@ def main() -> int:
     platform_pkg = {
         "kind": "ZarfPackageConfig",
         "metadata": {
-            "name": "dp-ai-001-c-platform",
+            "name": "sap-platform",
             "version": "0.2.0",
-            "description": "Innovox sovereign agentic platform, open-source layer, for carry-in to a "
+            "description": "Innovox Sovereign Agentic Platform, open-source layer, for carry-in to a "
                            "disconnected enclave (B2)",
         },
         "components": [
@@ -177,7 +177,7 @@ def main() -> int:
     langsmith_pkg = {
         "kind": "ZarfPackageConfig",
         "metadata": {
-            "name": "dp-ai-001-c-langsmith",
+            "name": "sap-langsmith",
             "version": next(v for app, _, _, v in charts if app == "langsmith"),
             "description": "LangSmith chart and images, packaged apart so it follows LangChain's release cadence "
                            "(AD-40). Needs an offline licence from LangChain (D-06).",

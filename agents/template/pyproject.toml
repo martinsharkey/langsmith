@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "innovox-agent-template"
 version = "0.1.0"
-description = "Template deep agent for the Innovox sovereign agentic platform (AD-57, AD-59)"
+description = "Template deep agent for the Innovox Sovereign Agentic Platform (AD-57, AD-59)"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
