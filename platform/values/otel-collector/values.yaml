@@ -37,21 +37,24 @@ extraEnvs:
   - name: OPENSEARCH_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: opensearch-admin
+        name: opensearch-otel-collector   # write-only user (role trace_writer, platform/values/opensearch)
         key: password
 extraVolumes:
-  - name: opensearch-ca
+  - name: platform-ca
     secret:
-      secretName: opensearch-ca
+      secretName: platform-ca-bundle      # trust-manager writes it to every namespace
+      items:
+        - key: ca-bundle.crt
+          path: ca.crt
 extraVolumeMounts:
-  - name: opensearch-ca
+  - name: platform-ca
     mountPath: /etc/otel/tls
     readOnly: true
 config:
   extensions:
     basicauth/opensearch:
       client_auth:
-        username: admin
+        username: otel-collector
         password: ${env:OPENSEARCH_PASSWORD}
   receivers:
     jaeger: null

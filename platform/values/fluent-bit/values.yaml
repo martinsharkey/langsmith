@@ -1,4 +1,5 @@
-# Ships container logs, Kubernetes audit logs and Falco events to OpenSearch.
+# Ships container logs, Kubernetes audit logs and Falco events to OpenSearch, as the write-only user fluent-bit
+# (role log_writer in platform/values/opensearch/values.yaml), verifying OpenSearch against the platform CA.
 config:
   inputs: |
     [INPUT]
@@ -19,7 +20,7 @@ config:
         Match *
         Host opensearch-cluster-master.observability.svc
         Port 9200
-        HTTP_User admin
+        HTTP_User fluent-bit
         HTTP_Passwd ${OPENSEARCH_PASSWORD}
         tls On
         tls.verify On
@@ -31,17 +32,20 @@ env:
   - name: OPENSEARCH_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: opensearch-admin
+        name: opensearch-fluent-bit
         key: password
 extraVolumes:
-  - name: opensearch-ca
+  - name: platform-ca
     secret:
-      secretName: opensearch-ca
+      secretName: platform-ca-bundle   # trust-manager writes it to every namespace
+      items:
+        - key: ca-bundle.crt
+          path: ca.crt
   - name: rke2-audit
     hostPath:
       path: /var/lib/rancher/rke2/server/logs
 extraVolumeMounts:
-  - name: opensearch-ca
+  - name: platform-ca
     mountPath: /fluent-bit/tls
     readOnly: true
   - name: rke2-audit

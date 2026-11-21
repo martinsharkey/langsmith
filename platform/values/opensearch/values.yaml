@@ -1,4 +1,7 @@
-# Central log and audit store (CTL-13). The admin password comes from OpenBao through External Secrets.
+# Central log and audit store (CTL-13). Chart 3.9.0 (OpenSearch 3.9.0).
+# The chart's default is the security plugin's demonstration setup (demo certificates and users). It is replaced
+# here: node and HTTP certificates come from the platform CA (issue 47), and the shippers have write-only users of
+# their own instead of the admin account (issue 57). Passwords come from OpenBao through External Secrets.
 replicas: 3
 global:
   dockerRegistry: docker.io      # fully qualified image names, so the admission allowlist can match them
@@ -7,8 +10,202 @@ persistence:
   storageClass: ceph-block
   size: 200Gi
 extraEnvs:
-  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: opensearch-admin
-        key: password
+  # The image's entrypoint runs install_demo_configuration.sh unless this is set.
+  - name: DISABLE_INSTALL_DEMO_CONFIG
+    value: "true"
+
+config:
+  # Paths are relative to the config directory, as the security plugin requires; keys are PKCS #8.
+  opensearch.yml: |
+    cluster.name: opensearch-cluster
+    network.host: 0.0.0.0
+    plugins.security.ssl.transport.pemcert_filepath: certs/tls.crt
+    plugins.security.ssl.transport.pemkey_filepath: certs/tls.key
+    plugins.security.ssl.transport.pemtrustedcas_filepath: certs/ca.crt
+    # Nodes reach each other by pod address, which the certificate does not name; the CA and nodes_dn still apply.
+    transport.ssl.enforce_hostname_verification: false
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pemcert_filepath: certs/tls.crt
+    plugins.security.ssl.http.pemkey_filepath: certs/tls.key
+    plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.crt
+    # cert-manager renews the certificate in place; the plugin rereads it.
+    plugins.security.ssl.certificates_hot_reload.enabled: true
+    plugins.security.nodes_dn:
+      - CN=opensearch-node
+    # First start: create the security index from the files in config/opensearch-security (below). Later changes go
+    # through the REST API as admin, or securityadmin.sh.
+    plugins.security.allow_default_init_securityindex: true
+    plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+    plugins.security.audit.type: internal_opensearch
+
+secretMounts:
+  - name: node-tls
+    secretName: opensearch-node-tls
+    path: /usr/share/opensearch/config/certs
+
+securityConfig:
+  enabled: true
+  # internal_users.yml holds password hashes, so it comes from a Secret rendered by External Secrets (below).
+  internalUsersSecret: opensearch-internal-users
+  config:
+    # Only these files are replaced; the image's config.yml, action_groups.yml and tenants.yml stay.
+    dataComplete: false
+    data:
+      # Write-only roles for the shippers: create their own indices and add documents. No read, no delete, no
+      # index or cluster administration (T-23, SR-09).
+      roles.yml: |
+        _meta:
+          type: "roles"
+          config_version: 2
+        log_writer:
+          reserved: true
+          description: "Fluent Bit: create logstash-* indices and add documents"
+          cluster_permissions: ["cluster_monitor", "indices:data/write/bulk"]
+          index_permissions:
+            - index_patterns: ["logstash-*"]
+              allowed_actions: ["create_index", "indices:data/write/index", "indices:data/write/bulk*"]
+        trace_writer:
+          reserved: true
+          description: "OpenTelemetry Collector: create ss4o_traces-* indices and add documents"
+          cluster_permissions: ["cluster_monitor", "indices:data/write/bulk"]
+          index_permissions:
+            - index_patterns: ["ss4o_traces-*"]
+              allowed_actions: ["create_index", "indices:data/write/index", "indices:data/write/bulk*"]
+      roles_mapping.yml: |
+        _meta:
+          type: "rolesmapping"
+          config_version: 2
+        all_access:
+          reserved: true
+          backend_roles: ["admin"]
+          description: "Maps admin to all_access"
+        kibana_server:
+          reserved: true
+          users: ["kibanaserver"]
+        log_writer:
+          reserved: true
+          users: ["fluent-bit"]
+        trace_writer:
+          reserved: true
+          users: ["otel-collector"]
+
+extraObjects:
+  # Node certificate for the transport and HTTP layers. Transport TLS needs both client and server usage.
+  - apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: opensearch-node
+      namespace: observability
+    spec:
+      secretName: opensearch-node-tls
+      commonName: opensearch-node          # named in plugins.security.nodes_dn
+      usages: ["server auth", "client auth"]
+      privateKey:
+        algorithm: RSA
+        size: 3072
+        encoding: PKCS8
+        rotationPolicy: Always
+      dnsNames:
+        - opensearch-cluster-master
+        - opensearch-cluster-master.observability.svc
+        - opensearch-cluster-master.observability.svc.cluster.local
+        - opensearch-cluster-master-headless
+        - "*.opensearch-cluster-master-headless.observability.svc"
+        - "*.opensearch-cluster-master-headless.observability.svc.cluster.local"
+      issuerRef:
+        name: platform-ca-issuer
+        kind: ClusterIssuer
+  # The internal user database. Hashes are bcrypt, made by External Secrets' htpasswd function from the passwords in
+  # OpenBao. The backticks stop Helm rendering the External Secrets template.
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: opensearch-internal-users
+      namespace: observability
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: openbao
+        kind: ClusterSecretStore
+      target:
+        name: opensearch-internal-users
+        creationPolicy: Owner
+        template:
+          engineVersion: v2
+          data:
+            internal_users.yml: |
+              _meta:
+                type: "internalusers"
+                config_version: 2
+              admin:
+                hash: "{{ `{{ htpasswd "u" .admin "bcrypt" | trimPrefix "u:" }}` }}"
+                reserved: true
+                backend_roles: ["admin"]
+              kibanaserver:
+                hash: "{{ `{{ htpasswd "u" .dashboards "bcrypt" | trimPrefix "u:" }}` }}"
+                reserved: true
+              fluent-bit:
+                hash: "{{ `{{ htpasswd "u" .fluentbit "bcrypt" | trimPrefix "u:" }}` }}"
+                reserved: true
+              otel-collector:
+                hash: "{{ `{{ htpasswd "u" .otelcollector "bcrypt" | trimPrefix "u:" }}` }}"
+                reserved: true
+      data:
+        - secretKey: admin
+          remoteRef: {key: observability/opensearch, property: admin_password}
+        - secretKey: dashboards
+          remoteRef: {key: observability/opensearch, property: dashboards_password}
+        - secretKey: fluentbit
+          remoteRef: {key: observability/opensearch, property: fluent_bit_password}
+        - secretKey: otelcollector
+          remoteRef: {key: observability/opensearch, property: otel_collector_password}
+  # Each shipper's own password, for its pod (Fluent Bit and the collector run in this namespace).
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: opensearch-fluent-bit
+      namespace: observability
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: openbao
+        kind: ClusterSecretStore
+      target:
+        name: opensearch-fluent-bit
+        creationPolicy: Owner
+      data:
+        - secretKey: password
+          remoteRef: {key: observability/opensearch, property: fluent_bit_password}
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: opensearch-otel-collector
+      namespace: observability
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: openbao
+        kind: ClusterSecretStore
+      target:
+        name: opensearch-otel-collector
+        creationPolicy: Owner
+      data:
+        - secretKey: password
+          remoteRef: {key: observability/opensearch, property: otel_collector_password}
+  # For OpenSearch Dashboards (its values file must read it: opensearch.username kibanaserver and this password).
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: opensearch-dashboards-user
+      namespace: observability
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: openbao
+        kind: ClusterSecretStore
+      target:
+        name: opensearch-dashboards-user
+        creationPolicy: Owner
+      data:
+        - secretKey: password
+          remoteRef: {key: observability/opensearch, property: dashboards_password}
