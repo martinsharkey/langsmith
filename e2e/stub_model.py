@@ -4,19 +4,27 @@
 Speaks the OpenAI Chat Completions format (streaming and non-streaming) and replies by simple rules, so a test run
 needs no model, no GPU and no network:
 
-- the last message is a tool result  -> a final text answer quoting it
+- the last messages are tool results -> a final text answer quoting them
+- a background task notification     -> a short acknowledgement
+- the user asks to "look up"         -> a `lookup_reference` tool call (a read-only tool from the example MCP server)
+- the user asks to "file a note"     -> a `file_reference_note` tool call (a write tool from the e2e notes server)
+- the user asks for "background"     -> a `start_async_task` tool call (the analyst async subagent)
+- the user asks to "publish two"     -> two `publish_document` tool calls in one turn
 - the user asks to "publish"         -> a `publish_document` tool call (which the agent must pause on)
 - the user asks for a "plan"         -> a `write_todos` tool call
-- the user asks to "look up"         -> a `lookup_reference` tool call (a tool from the example MCP server)
-- the user asks for "background"     -> a `start_async_task` tool call (the analyst async subagent)
-- a background task notification     -> a short acknowledgement
 - anything else                      -> a short text reply
+
+`GET /offered-tools` lists every tool name the agent has offered the model, so a test can prove a tool was withheld.
 """
 from __future__ import annotations
 
 import json
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+OFFERED: set[str] = set()
+_offered_lock = threading.Lock()
 
 
 def text_of(content) -> str:
@@ -28,34 +36,48 @@ def text_of(content) -> str:
 
 
 def decide(messages: list[dict]) -> dict:
-    last = messages[-1] if messages else {}
-    if last.get("role") == "tool":
-        return {"content": f"Finished: {text_of(last.get('content'))}"}
+    results = []
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            break
+        results.insert(0, text_of(message.get("content")))
+    if results:
+        return {"content": "Finished: " + " | ".join(results)}
     user = next((text_of(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
     lowered = user.lower()
-    if "<task-notification>" in lowered:
+    if "<task-notification>" in lowered and "an async subagent task you started" in lowered:
         return {"content": "The background analysis has finished."}
     if "look up" in lowered:
-        return {"tool": "lookup_reference", "args": {"key": "AD-59"}}
+        return {"tools": [("lookup_reference", {"key": "AD-59"})]}
+    if "file a note" in lowered:
+        return {"tools": [("file_reference_note", {"key": "AD-59", "note": "Reviewed"})]}
     if "background" in lowered:
-        return {"tool": "start_async_task", "args": {"description": "Analyse decision AD-59",
-                                                     "subagent_type": "analyst"}}
+        return {"tools": [("start_async_task", {"description": "Analyse decision AD-59", "subagent_type": "analyst"})]}
+    if "publish two" in lowered:
+        return {"tools": [("publish_document", {"title": "Alpha", "body": "First text"}),
+                          ("publish_document", {"title": "Beta", "body": "Second text"})]}
     if "publish" in lowered:
-        return {"tool": "publish_document", "args": {"title": "Design", "body": "Approved text"}}
+        return {"tools": [("publish_document", {"title": "Design", "body": "Approved text"})]}
     if "plan" in lowered:
-        return {"tool": "write_todos", "args": {"todos": [
+        return {"tools": [("write_todos", {"todos": [
             {"content": "Draft the design", "status": "in_progress"},
             {"content": "Review the draft", "status": "pending"},
-        ]}}
+        ]})]}
     return {"content": f"Stub model reply: {user}"}
 
 
 def message_for(decision: dict) -> tuple[dict, str]:
-    if "tool" in decision:
-        call = {"id": "call_e2e_1", "type": "function",
-                "function": {"name": decision["tool"], "arguments": json.dumps(decision["args"])}}
-        return {"role": "assistant", "content": None, "tool_calls": [call]}, "tool_calls"
+    if "tools" in decision:
+        calls = [{"id": f"call_e2e_{n}", "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}
+                 for n, (name, args) in enumerate(decision["tools"], start=1)]
+        return {"role": "assistant", "content": None, "tool_calls": calls}, "tool_calls"
     return {"role": "assistant", "content": decision["content"]}, "stop"
+
+
+def record_offered(tools: list[dict] | None) -> None:
+    names = {(tool.get("function") or {}).get("name") for tool in tools or []}
+    with _offered_lock:
+        OFFERED.update(name for name in names if name)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -73,9 +95,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path.rstrip("/").endswith("/models"):
+        path = self.path.rstrip("/")
+        if path.endswith("/models"):
             self._json(200, {"object": "list", "data": [{"id": "custom/class-m", "object": "model"},
                                                         {"id": "custom/class-s", "object": "model"}]})
+        elif path == "/offered-tools":
+            with _offered_lock:
+                self._json(200, {"tools": sorted(OFFERED)})
         else:
             self._json(200, {"status": "ok"})
 
@@ -88,6 +114,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.headers.get("Authorization", "").startswith("Bearer "):
             self._json(401, {"error": {"message": "missing gateway key"}})
             return
+        record_offered(request.get("tools"))
         model = request.get("model", "custom/class-m")
         message, finish = message_for(decide(request.get("messages", [])))
         base = {"id": "chatcmpl-e2e", "created": 0, "model": model}

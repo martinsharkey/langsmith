@@ -23,20 +23,24 @@ docker run -d --name e2e-keycloak -p 8080:8080 \
 
 python3 "$root/e2e/stub_model.py" 9000 >"$logs/stub-model.log" 2>&1 &
 python3 "$root/mcp-servers/reference/server.py" >"$logs/mcp-reference.log" 2>&1 &
+python3 "$root/e2e/mcp_notes_server.py" >"$logs/mcp-notes.log" 2>&1 &
 
 (
   cd "$root/agents/template"
   LANGSMITH_TRACING=false \
   LANGSMITH_GATEWAY=http://127.0.0.1:9000/v1 LANGSMITH_GATEWAY_API_KEY=e2e \
   OIDC_ISSUER=http://localhost:8080/realms/langsmith OIDC_AUDIENCE=workbench \
-  MCP_SERVERS='{"reference":{"transport":"http","url":"http://127.0.0.1:9100/mcp"}}' \
-  MCP_ALLOWED_TOOLS=lookup_reference \
+  MCP_SERVERS='{"reference":{"transport":"http","url":"http://127.0.0.1:9100/mcp"},"notes":{"transport":"http","url":"http://127.0.0.1:9101/mcp"}}' \
+  MCP_ALLOWED_TOOLS=lookup_reference,file_reference_note \
+  MCP_READ_ONLY_TOOLS=lookup_reference \
   langgraph dev --no-browser --host 127.0.0.1 --port 2024 >"$logs/agent.log" 2>&1 &
 )
 
 wait_for keycloak http://localhost:8080/realms/langsmith/.well-known/openid-configuration 240
 wait_for stub-model http://127.0.0.1:9000/health 30
-for _ in $(seq 1 30); do (exec 3<>/dev/tcp/127.0.0.1/9100) 2>/dev/null && { echo "ready: mcp-reference"; break; }; sleep 1; done
+for port in 9100 9101; do
+  for _ in $(seq 1 30); do (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && { echo "ready: mcp server on $port"; break; }; sleep 1; done
+done
 
 (
   cd "$root/workbench"
