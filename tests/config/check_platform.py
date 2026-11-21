@@ -58,14 +58,19 @@ def runbook_writes(text: str) -> set[tuple[str, str]]:
     """(path, property) pairs written by `bao kv put` commands in the runbook's shell blocks."""
     joined = re.sub(r"\\\n\s*", " ", text)
     writes = set()
+    paths: list[str] = []
     for line in joined.splitlines():
         if "bao kv put" not in line:
             continue
         tokens = shlex.split(line[line.index("bao kv put"):], comments=True)
         path = tokens[3]
+        paths.append(path)
         for token in tokens[4:]:
             if "=" in token and not token.startswith("-"):
                 writes.add((path, token.split("=", 1)[0]))
+    for path in sorted({p for p in paths if paths.count(p) > 1}):
+        # `bao kv put` replaces the whole secret: a second put to a path drops the first put's properties.
+        fail("#46 runbook-secrets", f"runbook writes {path} more than once; the last write replaces the others")
     return writes
 
 
@@ -104,19 +109,11 @@ def check_keycloak_route() -> None:
         return
     port = routes[0]["spec"]["http"][0]["route"][0]["destination"]["port"]["number"]
     target = routes[0]["spec"]["http"][0]["route"][0]["destination"]["host"]
-    originates_tls = any(d.get("kind") == "DestinationRule" and d["spec"]["host"] == target
-                         and d["spec"].get("trafficPolicy", {}).get("tls", {}).get("mode") == "SIMPLE"
-                         for d in mesh)
     http_port = http.get("httpPort", 8080)
-    https_port = http.get("httpsPort", 8443)
-    if port == http_port and http.get("httpEnabled") is True:
-        pass
-    elif port == https_port and http.get("tlsSecret") and originates_tls:
-        pass
-    else:
-        fail(check, f"gateway sends HTTP (inside mesh mutual TLS) to {target}:{port}, but Keycloak serves "
-                    f"{'TLS' if port == https_port else 'nothing'} there (httpEnabled={http.get('httpEnabled')}, "
-                    f"tlsSecret={http.get('tlsSecret')}, DestinationRule SIMPLE={originates_tls})")
+    if port != http_port or http.get("httpEnabled") is not True or http.get("tlsSecret"):
+        fail(check, f"gateway sends HTTP (inside mesh mutual TLS) to {target}:{port}, but Keycloak does not serve "
+                    f"plain HTTP there (httpEnabled={http.get('httpEnabled')}, httpPort={http_port}, "
+                    f"tlsSecret={http.get('tlsSecret')})")
     if not hostname.startswith("https://"):
         fail(check, f"Keycloak hostname '{hostname}' must be the full https:// URL the gateway serves, so the "
                     "issuer does not depend on forwarded headers")
@@ -237,8 +234,19 @@ def check_rendered_argocd(rendered: Path) -> None:
             fail(check, "oidc.config has no clientID")
         if "groups" not in oidc.get("requestedScopes", ["groups"]):
             fail(check, "oidc.config does not request the groups scope the RBAC policy maps")
-        if not oidc.get("rootCA"):
+        root_ca = str(oidc.get("rootCA", ""))
+        if not root_ca:
             fail(check, "oidc.config has no rootCA: the platform CA is not a public CA")
+        elif root_ca.startswith("$") and ":" in root_ca:
+            # `$<secret>:<key>` resolves only from a Secret labelled app.kubernetes.io/part-of=argocd.
+            secret = root_ca[1:].split(":", 1)[0]
+            bundles = [d for _, d in manifests("platform/manifests/base") if d.get("kind") == "Bundle"
+                       and d["metadata"]["name"] == secret]
+            labels = (bundles[0]["spec"]["target"]["secret"].get("metadata", {}).get("labels", {})
+                      if bundles else {})
+            if labels.get("app.kubernetes.io/part-of") != "argocd":
+                fail(check, f"rootCA reads Secret {secret}, but its trust-manager Bundle does not label the Secret "
+                            "app.kubernetes.io/part-of: argocd, so Argo CD cannot resolve it")
     if str(cm.get("admin.enabled", "true")).lower() != "false":
         fail(check, "local admin account is enabled (admin.enabled)")
     if "resource.customizations.health.argoproj.io_Application" not in cm:

@@ -58,7 +58,9 @@ each pod already trusts it. Pods `openbao-1` and `openbao-2` join `openbao-0` ov
 kubectl -n openbao exec -ti openbao-0 -- bao operator init -key-shares=5 -key-threshold=3
 # Hand each unseal key to a named custodian. Never store them in the cluster or in this repository.
 for pod in openbao-0 openbao-1 openbao-2; do
-  kubectl -n openbao exec -ti "$pod" -- bao operator unseal   # three times per pod, three custodians
+  for custodian in 1 2 3; do                                   # threshold 3: three custodians per pod
+    kubectl -n openbao exec -ti "$pod" -- bao operator unseal
+  done
 done
 kubectl -n openbao exec -ti openbao-0 -- sh -c '
   bao login && bao secrets enable -path=platform kv-v2 && bao auth enable kubernetes &&
@@ -72,7 +74,8 @@ P
 Write the platform secrets (generated on the jump host, never echoed to logs). The jump host reaches OpenBao
 through a port-forward; its certificate names 127.0.0.1:
 ```bash
-kubectl -n openbao port-forward svc/openbao-active 8200 &
+kubectl -n openbao port-forward svc/openbao-active 8200 & pf=$!
+sleep 2   # let the port-forward listen
 kubectl -n openbao get secret openbao-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > platform-ca.crt
 export BAO_ADDR=https://127.0.0.1:8200 BAO_CACERT=$PWD/platform-ca.crt
 bao login
@@ -93,11 +96,13 @@ bao kv put platform/workbench/oidc client_secret="$(openssl rand -hex 32)"   # K
 bao kv put platform/dependency-track/kek kek="$(openssl rand -base64 32)"
 ```
 `tests/config/check_platform.py` fails if an ExternalSecret reads a path or property this step does not write.
-After Rook creates the S3 users (wave 2), copy their keys into OpenBao:
+After Rook creates the S3 users (wave 2), copy their keys into OpenBao (same shell and port-forward), then stop
+the port-forward and remove the CA file:
 ```bash
 k=$(kubectl -n rook-ceph get secret rook-ceph-object-user-platform-langsmith -o jsonpath='{.data.AccessKey}' | base64 -d)
 s=$(kubectl -n rook-ceph get secret rook-ceph-object-user-platform-langsmith -o jsonpath='{.data.SecretKey}' | base64 -d)
 bao kv put platform/langsmith/s3 access_key="$k" secret_key="$s"
+kill "$pf"; rm platform-ca.crt; unset k s
 ```
 
 ## 5. Gate E1
