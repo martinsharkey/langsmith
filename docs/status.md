@@ -27,7 +27,6 @@
 | Gap | Stage |
 | --- | --- |
 | Kyverno rule to verify LangChain's keyless image signatures, once LangChain confirms the signing identity | 2 |
-| OpenSearch HTTP certificates issued by the platform CA (Fluent Bit already verifies against `opensearch-ca`) | 2 |
 | Valkey high availability: LangChain supports standalone and Cluster, not Sentinel, so the route is Valkey Cluster. Deferred until standalone Valkey is proven (issue 11) | 2 |
 | Dependency-Track: sign-in through Keycloak, upload of SBOMs from the pipelines, and an offline vulnerability feed for the enclave | 2 |
 | Red-team scripts run against a deployed platform; CHECK penetration test | 4 |

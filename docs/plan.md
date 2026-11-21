@@ -69,4 +69,4 @@ Each of these is recorded as a GitHub issue so it can be picked up during deploy
 | 21 | Backup, restore and upgrade rehearsal | Cluster, licence |
 | 22 | Red teaming and CHECK penetration test (gates E2, P1) | Deployed platform |
 | 23 | Workbench lockfile, shared session store and deployment | Partly now, partly cluster |
-| 24 | End-to-end test: MCP tool server and async subagent | Nothing; can be done now |
+| 24 | End-to-end test: MCP tool server and async subagent | Done (closed) |

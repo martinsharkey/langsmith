@@ -1,5 +1,6 @@
-# CTL-01. Pods may only use images from approved sources. Nodes pull every upstream name through the site Harbor
-# mirror (infra/rke2/config/registries.yaml.example), so this list is the supply-chain allowlist, not a network path.
+# CTL-01. Pods may only use images from approved sources. Nodes are configured to pull every registry on this list
+# through the site Harbor (infra/rke2/config/registries.yaml.example), but may still fall back to the upstream
+# registry until issue 51 is decided. This list is the supply-chain allowlist, not a network path.
 # Each entry is a prefix: a registry path ending in "/" allows every image under it; one ending in ":" allows
 # every tag of that one image.
 apiVersion: policies.kyverno.io/v1

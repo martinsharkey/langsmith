@@ -59,7 +59,8 @@ versions.yaml    every pinned version in one place
 ## Quick start
 
 ```bash
-make validate            # everything CI runs, locally
+make validate            # lint, secrets, schemas, policies, IaC and unit tests; CI also renders the charts and
+                         # runs the agent, workbench, assurance and end-to-end jobs (.github/workflows/ci.yml)
 make -C model-intake test
 ```
 
