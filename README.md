@@ -71,15 +71,17 @@ Follow [Enable Agent Server hosting](https://docs.langchain.com/langsmith/enable
    ```
 2. Install an ingress controller (or Gateway API, or Istio) in the cluster, then uncomment the Agent Server block
    in `langsmith_config.yaml`: `config.hostname`, `config.deployment.enabled`, `ingress.enabled` and
-   `frontend.service.type: ClusterIP`. **0.18:** the release refuses to install with Agent Server on and no
-   ingress, gateway or Istio gateway enabled; and it refuses `ingress.hostname` and `ingress.subdomain`, even
-   empty, which the ingress guide's example still shows. Leave them out. Agent Server expects TLS by default
-   (`config.deployment.tlsEnabled`).
+   `frontend.service.type: ClusterIP`. The release refuses to install with Agent Server on and no ingress,
+   gateway or Istio gateway enabled. It also refuses `ingress.hostname` and `ingress.subdomain`, even empty
+   (moved to `config.hostname` and `config.basePath` in v12), which the ingress guide's example still shows:
+   leave them out. Agent Server expects TLS by default (`config.deployment.tlsEnabled: true`): give the ingress
+   a certificate as the [ingress guide](https://docs.langchain.com/langsmith/self-host-ingress) describes, or set
+   `tlsEnabled: false` for a test without TLS.
 3. Run the `helm upgrade` command from step 3 again.
 4. Build an agent with LangGraph (needs Docker and the LangGraph CLI) for the cluster's CPU, and push it:
    ```bash
    langgraph dev                                              # try it locally
-   langgraph build -t <registry>/<image>:<tag> --platform linux/amd64
+   langgraph build -t <registry>/<image>:<tag> --platform linux/amd64    # or linux/arm64 for Arm nodes
    docker push <registry>/<image>:<tag>
    ```
    If the registry is private, give the cluster pull access as the guide describes (`operator.templates.deployment`).
@@ -89,5 +91,6 @@ Follow [Enable Agent Server hosting](https://docs.langchain.com/langsmith/enable
 ## Defaults to know
 
 - LangSmith sends operational telemetry (logs, metrics, traces) to LangChain unless `config.telemetry` turns it
-  off; the licence beacon itself cannot be turned off ([egress](https://docs.langchain.com/langsmith/self-host-egress)).
+  off, and usage telemetry unless `PHONE_HOME_USAGE_REPORTING_ENABLED: false` is set in `commonEnv`. The
+  licence beacon itself cannot be turned off ([egress](https://docs.langchain.com/langsmith/self-host-egress)).
 - Single sign-on, external datastores, TLS and air-gapped installs are in LangChain's guide.

@@ -1,5 +1,5 @@
 # LangSmith configuration: the minimal example in LangChain's guide (https://docs.langchain.com/langsmith/kubernetes),
-# which the LangSmith 0.18.1 release accepts. Copy this file to langsmith_config.yaml (git ignores it) and replace
+# which LangSmith 0.18.1 renders (helm template, with and without Agent Server). Copy this file to langsmith_config.yaml (git ignores it) and replace
 # every <...> value. Set only the options your installation needs; do not copy the chart's whole values.yaml.
 
 config:
