@@ -91,6 +91,11 @@ Follow [Enable Agent Server hosting](https://docs.langchain.com/langsmith/enable
 ## Defaults to know
 
 - LangSmith sends operational telemetry (logs, metrics, traces) to LangChain unless `config.telemetry` turns it
-  off, and usage telemetry unless `PHONE_HOME_USAGE_REPORTING_ENABLED: false` is set in `commonEnv`. The
-  licence beacon itself cannot be turned off ([egress](https://docs.langchain.com/langsmith/self-host-egress)).
+  off, and usage telemetry unless you add this to your config (`commonEnv` is a list of environment variables):
+  ```yaml
+  commonEnv:
+    - name: PHONE_HOME_USAGE_REPORTING_ENABLED
+      value: "false"
+  ```
+  The licence beacon itself cannot be turned off ([egress](https://docs.langchain.com/langsmith/self-host-egress)).
 - Single sign-on, external datastores, TLS and air-gapped installs are in LangChain's guide.
