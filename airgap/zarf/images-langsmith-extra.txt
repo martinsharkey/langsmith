@@ -1,3 +1,0 @@
-# LangSmith images that the chart does not name: Agent Server images are built per agent (agents/template) and
-# carried in as their own signed images. LangChain's mirror_langsmith_images.sh is stale after 0.16.21 (I-17), so
-# the list in images-langsmith.txt comes from rendering the chart at the pinned version.

@@ -1,17 +1,2 @@
-.terraform/
-*.tfstate
-*.tfstate.*
-terraform.tfvars
-*.tfvars.json
-__pycache__/
-*.pyc
-.venv/
-dist/
-*.egg-info/
-.pytest_cache/
-zarf-package-*.tar.zst
-/out/
-.env
-e2e/logs/
-e2e/test-results/
-node_modules/
+# Your real LangSmith configuration holds the licence key and secrets. Never commit it.
+langsmith_config.yaml

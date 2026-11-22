@@ -1,0 +1,28 @@
+# LangSmith configuration, as in LangChain's self-hosting guide (https://docs.langchain.com/langsmith/kubernetes)
+# and the chart's own example (examples/basic_auth.yaml in langsmith 0.18.1).
+#
+# Copy this file to langsmith_config.yaml (git ignores that name) and replace every <...> value.
+# Set only the options your installation needs; do not copy the chart's whole values.yaml.
+
+config:
+  langsmithLicenseKey: "<your licence key from LangChain>"
+  apiKeySalt: "<openssl rand -base64 32>"         # set once; do not change it later
+  authType: mixed
+  basicAuth:
+    enabled: true
+    initialOrgAdminEmail: "<admin email>"
+    initialOrgAdminPassword: "<at least 12 characters, with lowercase, uppercase and a symbol>"
+    jwtSecret: "<openssl rand -base64 32, a different value from apiKeySalt>"
+
+  # Agent Server (deploying LangGraph agents). Needs an Enterprise licence, KEDA and a hostname: see README.md.
+  # hostname: "<langsmith.your-domain>"
+  # deployment:
+  #   enabled: true
+
+insights:
+  enabled: true
+  encryptionKey: "<python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\">"
+
+polly:
+  enabled: true
+  encryptionKey: "<the same command again, a different value>"

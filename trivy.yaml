@@ -1,8 +1,0 @@
-# Trivy configuration for gate PR. Test fixtures are deliberately non-compliant and are excluded.
-severity: [HIGH, CRITICAL]
-scan:
-  skip-dirs:
-    - policies/kyverno/tests
-    - tests/admission
-misconfiguration:
-  scanners: [kubernetes, terraform, helm, dockerfile]

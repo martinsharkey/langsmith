@@ -1,9 +1,0 @@
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
-  "labels": ["dependencies"],
-  "minimumReleaseAge": "14 days",
-  "packageRules": [
-    { "matchUpdateTypes": ["major"], "dependencyDashboardApproval": true }
-  ]
-}

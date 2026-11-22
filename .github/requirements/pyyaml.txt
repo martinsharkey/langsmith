@@ -1,5 +1,0 @@
-# Hashed pins for CI (issue 41). Install with: pip install --require-hashes --only-binary=:all: -r <this file>
-# Resolved for CPython 3.12 on Linux x86_64 from PyPI metadata (names, versions, wheel SHA-256), taking for each
-# package the newest release at least 14 days old (renovate.json minimumReleaseAge). The top-level pin is also
-# in versions.yaml; scripts/check_versions.py keeps the two in step.
-pyyaml==6.0.3 --hash=sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc  # released 2025-09-25

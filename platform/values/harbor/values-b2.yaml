@@ -1,8 +1,0 @@
-# Mode B2 (disconnected enclave). Harbor chart 1.19.4: offlineScan alone "doesn't affect DB download. You need to
-# specify skipUpdate as well as offlineScan in an air-gapped environment." With the updates skipped, the Trivy and
-# Java databases must already be in the scanner cache (/home/scanner/.cache/trivy/db/trivy.db and
-# /home/scanner/.cache/trivy/java-db/trivy-java.db, on the trivy volume), carried in with each package.
-trivy:
-  offlineScan: true
-  skipUpdate: true
-  skipJavaDBUpdate: true

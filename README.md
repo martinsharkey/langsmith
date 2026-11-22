@@ -1,82 +1,80 @@
-# Innovox LangSmith Defence Platform
+# LangSmith, self-hosted
 
-Deployable reference implementation of the Innovox **sovereign agentic platform** (DP-AI-001 Solution Architecture
-v2.1, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
-platform where business users hand complex tasks to deep agents through a workbench, for UK defence and air-gapped
-sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
-free, open-source software, except LangSmith itself, which needs a licence from LangChain.
+LangChain's LangSmith platform, installed exactly as LangChain documents it, so it can be run and tested with its
+own features: tracing, evaluation, prompts, and deploying LangGraph agents (Agent Server). Nothing is added
+around it.
 
-> Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, chart render, schema and policy tests,
-> unit tests, agent image build and scan, and a browser end-to-end test) but has not yet been deployed on a cluster
-> or penetration tested. Work that needs a deployment is tracked in
-> [issue 25](https://github.com/martinsharkey/langsmith/issues/25). See [docs/status.md](docs/status.md).
+Source of every step: LangChain's self-hosting guide, <https://docs.langchain.com/langsmith/self-hosted>. If this
+page and the guide disagree, follow the guide.
 
-## What it builds
+## 1. What you need
 
-| Layer | Component | Licence |
-| --- | --- | --- |
-| Kubernetes | RKE2 (CIS profile, FIPS-capable, Cilium CNI) | Apache-2.0 |
-| GitOps | Argo CD (app of apps) | Apache-2.0 |
-| Certificates | cert-manager | Apache-2.0 |
-| Secrets and keys | OpenBao + External Secrets Operator | MPL-2.0 / Apache-2.0 |
-| Storage | Rook-Ceph (block + S3 object gateway, Object Lock buckets) | Apache-2.0 (Ceph LGPL) |
-| PostgreSQL 18 | CloudNativePG | Apache-2.0 |
-| Cache and run queue | Valkey | BSD-3-Clause |
-| Registry | Harbor (Trivy scanning) | Apache-2.0 |
-| Identity | Keycloak (operator) | Apache-2.0 |
-| Network and mesh | Cilium policy, Istio mutual TLS and ingress gateway | Apache-2.0 |
-| Admission policy | Kyverno (+ Sigstore cosign verification) | Apache-2.0 |
-| Observability | OpenSearch, kube-prometheus-stack, Falco | Apache-2.0 (Grafana AGPL-3.0) |
-| Model service | vLLM, upstream image as shipped | Apache-2.0 |
-| Air-gap packaging | Zarf | Apache-2.0 |
-| Autoscaling | KEDA (required by LangSmith Deployment) | Apache-2.0 |
-| Agent platform | LangSmith (SmithDB, no ClickHouse), Agent Server, LLM Gateway | Commercial licence |
+- A Kubernetes cluster from a cloud provider (LangChain tests on GKE, EKS, AKS and OpenShift 4.14+). LangChain
+  recommends at least 16 vCPUs and 64 GB of memory available, and a storage class backed by SSDs that supports
+  volume expansion (`kubectl get storageclass`).
+- `kubectl` and `helm` (v3) on your computer, connected to that cluster; `openssl`, and Python with the
+  `cryptography` package, to generate secrets.
+- A LangSmith licence key from LangChain. Agent Server needs an Enterprise licence.
+- Outbound access from the cluster to `https://beacon.langchain.com` (licence check).
 
-Two modes come from the same code (AD-44):
+To create the cluster, datastores and install together on AWS, Azure or GCP, LangChain also offers
+[Deploy with Terraform](https://docs.langchain.com/langsmith/self-host-terraform) instead of the steps below.
 
-- **B1 connected, OFFICIAL-SENSITIVE**: egress only from the LLM Gateway, to customer-approved UK model endpoints.
-- **B2 disconnected enclave**: no egress at all; software carried in as signed Zarf packages; sovereign models on vLLM.
-
-## Repository layout
-
-```
-docs/            architecture, SDLC, ADRs, control catalogue, threat model and risk register, plan, runbooks
-agents/template/ template deep agent: auth, model classes, approvals, MCP allowlist, evaluations
-workbench/       Next.js workbench (chat, plan, approvals, background tasks) on LangChain's useStream
-mcp-servers/     example MCP server
-e2e/             browser end-to-end test of the whole user journey against a stub model
-infra/opentofu/  Nutanix AHV virtual machines for RKE2 nodes (OpenTofu)
-infra/rke2/      RKE2 server and agent configuration, audit policy, Cilium settings
-platform/        Argo CD applications, Helm values per component, B1/B2 overlays, raw manifests
-policies/        Kyverno policies with tests; Cilium network policies
-airgap/zarf/     Zarf packages for carry-in to the enclave
-model-intake/    model intake gate CLI (provenance, ML-BOM, evaluation thresholds, decision record)
-redteam/         garak, PyRIT and Inspect configurations for OWASP LLM and Agentic testing
-tests/           in-cluster tests: zero egress, unsigned image refused
-versions.yaml    every pinned version in one place
-```
-
-## Quick start
+## 2. Configure
 
 ```bash
-make validate            # everything CI runs, locally
-make -C model-intake test
+cp langsmith_config.example.yaml langsmith_config.yaml     # git ignores langsmith_config.yaml
+openssl rand -base64 32                                    # once for apiKeySalt, again for jwtSecret
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"   # Insights, then Chat
 ```
 
-Deployment order and commands are in [docs/runbooks/install-b1.md](docs/runbooks/install-b1.md) and
-[docs/runbooks/install-b2-airgap.md](docs/runbooks/install-b2-airgap.md).
+Put the values into `langsmith_config.yaml`. Set `apiKeySalt` once and never change it.
 
-## Secrets
+## 3. Install
 
-This repository is public. It holds **no** secrets, licence keys, hostnames of real sites or customer data. Every
-secret is created in OpenBao at install time and reaches workloads through External Secrets. CI runs gitleaks on
-every pull request.
+```bash
+helm repo add langchain https://langchain-ai.github.io/helm
+helm search repo langchain/langsmith --versions            # LangChain recommends the latest version
+kubectl create namespace langsmith
+helm upgrade -i langsmith langchain/langsmith --values langsmith_config.yaml --version <version> \
+  -n langsmith --wait --debug
+kubectl get pods -n langsmith
+```
 
-## Secure development lifecycle
+By default LangSmith runs its own PostgreSQL, Redis, ClickHouse and blob storage (RustFS) inside the cluster. For
+production, LangChain recommends external datastores instead (see the guide).
 
-The repository follows a NIST SSDF (SP 800-218 and 800-218A) secure lifecycle mapped to MOD Secure by Design and the
-gates PR, E1, E2 and P1. See [docs/sdlc.md](docs/sdlc.md).
+## 4. Sign in and test
 
-## Licence
+```bash
+kubectl get svc -n langsmith                               # the frontend's external IP (LoadBalancer)
+curl http://<external ip>/api/tenants
+```
 
-Apache-2.0 for the code in this repository. Third-party components keep their own licences (table above).
+Open `http://<external ip>` and sign in with the admin email and password from `langsmith_config.yaml`. Then use
+LangSmith as documented: create an API key, send traces from an application, run evaluations.
+
+## 5. Deploy LangGraph agents (Agent Server)
+
+From LangChain's guide, [Enable Agent Server hosting](https://docs.langchain.com/langsmith/enable-self-hosted-agent-server):
+
+1. Install KEDA:
+   ```bash
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm upgrade --install keda kedacore/keda --namespace keda --create-namespace
+   ```
+2. Give LangSmith a hostname through an ingress, gateway or Istio, and set `config.hostname` in
+   `langsmith_config.yaml`.
+3. Set `config.deployment.enabled: true` and run the `helm upgrade` command from step 3 again.
+4. Build an agent with LangGraph and push its image to a registry the cluster can reach:
+   ```bash
+   langgraph dev                         # try it locally
+   langgraph build -t <registry>/<image>:<tag>
+   docker push <registry>/<image>:<tag>
+   ```
+5. In LangSmith, open **Agent Servers**, choose **+ Agent Server**, and give the image URL.
+
+## Not covered here
+
+Single sign-on, external datastores, ingress and TLS, and air-gapped installs are all in LangChain's guide. Add
+them only by following it.
