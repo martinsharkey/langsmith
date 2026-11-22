@@ -1,28 +1,33 @@
-# LangSmith configuration, as in LangChain's self-hosting guide (https://docs.langchain.com/langsmith/kubernetes)
-# and the chart's own example (examples/basic_auth.yaml in langsmith 0.18.1).
-#
-# Copy this file to langsmith_config.yaml (git ignores that name) and replace every <...> value.
-# Set only the options your installation needs; do not copy the chart's whole values.yaml.
+# LangSmith configuration: the minimal example in LangChain's guide (https://docs.langchain.com/langsmith/kubernetes),
+# which the LangSmith 0.18.1 release accepts. Copy this file to langsmith_config.yaml (git ignores it) and replace
+# every <...> value. Set only the options your installation needs; do not copy the chart's whole values.yaml.
 
 config:
   langsmithLicenseKey: "<your licence key from LangChain>"
-  apiKeySalt: "<openssl rand -base64 32>"         # set once; do not change it later
+  apiKeySalt: "<openssl rand -base64 32>"         # set once; never change it
   authType: mixed
   basicAuth:
     enabled: true
     initialOrgAdminEmail: "<admin email>"
-    initialOrgAdminPassword: "<at least 12 characters, with lowercase, uppercase and a symbol>"
+    # At least 12 characters with a lowercase letter, an uppercase letter and one of !#$%()+,-./:?@[\]^_{~}
+    initialOrgAdminPassword: "<admin password>"
     jwtSecret: "<openssl rand -base64 32, a different value from apiKeySalt>"
 
-  # Agent Server (deploying LangGraph agents). Needs an Enterprise licence, KEDA and a hostname: see README.md.
+  # Agent Server (deploying LangGraph agents): see README.md, step 5. Uncomment with the ingress block below.
   # hostname: "<langsmith.your-domain>"
   # deployment:
   #   enabled: true
 
+# ingress:
+#   enabled: true                 # needs an ingress controller in the cluster
+# frontend:
+#   service:
+#     type: ClusterIP
+
 insights:
   enabled: true
-  encryptionKey: "<python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\">"
+  encryptionKey: "<Fernet key: see README.md, step 2>"
 
-polly:
+polly:                            # Chat
   enabled: true
-  encryptionKey: "<the same command again, a different value>"
+  encryptionKey: "<a second Fernet key>"

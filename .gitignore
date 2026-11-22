@@ -1,2 +1,5 @@
-# Your real LangSmith configuration holds the licence key and secrets. Never commit it.
-langsmith_config.yaml
+# Your real LangSmith configuration holds the licence key and secrets. Never commit it, under any name.
+langsmith_config*.yaml
+!langsmith_config.example.yaml
+*values*.yaml
+.env
