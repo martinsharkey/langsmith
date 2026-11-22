@@ -1,0 +1,7 @@
+# gitleaks findings reviewed 2026-11-22: each is an OpenBao path reference (key: <path>) in a file deleted from
+# the repository, not a secret value. Fingerprints are commit:file:rule:line.
+24b80e74b76068b3253608607dd3a9f271fd71f7:platform/manifests/data/valkey.yaml:generic-api-key:42
+229239a1f0f216a1921eac4c6ba236512d88f6bb:platform/manifests/secrets/external-secrets.yaml:generic-api-key:176
+229239a1f0f216a1921eac4c6ba236512d88f6bb:platform/manifests/secrets/external-secrets.yaml:generic-api-key:199
+229239a1f0f216a1921eac4c6ba236512d88f6bb:platform/manifests/secrets/external-secrets.yaml:generic-api-key:256
+229239a1f0f216a1921eac4c6ba236512d88f6bb:platform/manifests/secrets/external-secrets.yaml:generic-api-key:260

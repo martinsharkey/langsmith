@@ -1,82 +1,101 @@
-# Innovox LangSmith Defence Platform
+# LangSmith, self-hosted
 
-Deployable reference implementation of the Innovox **sovereign agentic platform** (DP-AI-001 Solution Architecture
-v2.1, with the DP-AI-001-C Defence assurance annex): a self-hosted [LangSmith](https://docs.langchain.com/langsmith)
-platform where business users hand complex tasks to deep agents through a workbench, for UK defence and air-gapped
-sites. Start with [docs/architecture.md](docs/architecture.md). Everything in it is
-free, open-source software, except LangSmith itself, which needs a licence from LangChain.
+LangChain's LangSmith platform, installed as LangChain documents it, so it can be run and tested with its own
+features: tracing, evaluation, prompts, and deploying LangGraph agents (Agent Server). Nothing is added around it.
 
-> Status: **alpha (delivery stage 2)**. The code is validated in CI (lint, chart render, schema and policy tests,
-> unit tests, agent image build and scan, and a browser end-to-end test) but has not yet been deployed on a cluster
-> or penetration tested. Work that needs a deployment is tracked in
-> [issue 25](https://github.com/martinsharkey/langsmith/issues/25). See [docs/status.md](docs/status.md).
+**LangChain's guide is the source for every step:** <https://docs.langchain.com/langsmith/self-hosted>. This page
+gives the short path and the points where a first install goes wrong. Where the two differ, the guide wins, except
+for the version notes marked **0.18**, which come from the LangSmith 0.18.1 release itself.
 
-## What it builds
+## 1. Before you start
 
-| Layer | Component | Licence |
-| --- | --- | --- |
-| Kubernetes | RKE2 (CIS profile, FIPS-capable, Cilium CNI) | Apache-2.0 |
-| GitOps | Argo CD (app of apps) | Apache-2.0 |
-| Certificates | cert-manager | Apache-2.0 |
-| Secrets and keys | OpenBao + External Secrets Operator | MPL-2.0 / Apache-2.0 |
-| Storage | Rook-Ceph (block + S3 object gateway, Object Lock buckets) | Apache-2.0 (Ceph LGPL) |
-| PostgreSQL 18 | CloudNativePG | Apache-2.0 |
-| Cache and run queue | Valkey | BSD-3-Clause |
-| Registry | Harbor (Trivy scanning) | Apache-2.0 |
-| Identity | Keycloak (operator) | Apache-2.0 |
-| Network and mesh | Cilium policy, Istio mutual TLS and ingress gateway | Apache-2.0 |
-| Admission policy | Kyverno (+ Sigstore cosign verification) | Apache-2.0 |
-| Observability | OpenSearch, kube-prometheus-stack, Falco | Apache-2.0 (Grafana AGPL-3.0) |
-| Model service | vLLM, upstream image as shipped | Apache-2.0 |
-| Air-gap packaging | Zarf | Apache-2.0 |
-| Autoscaling | KEDA (required by LangSmith Deployment) | Apache-2.0 |
-| Agent platform | LangSmith (SmithDB, no ClickHouse), Agent Server, LLM Gateway | Commercial licence |
+- **Licence:** self-hosted LangSmith is an Enterprise add-on; you need a licence key from LangChain.
+- **Cluster:** Kubernetes from your cloud provider (LangChain tests GKE, EKS, AKS and OpenShift 4.14+), with:
+  - at least 16 vCPUs and 64 GB of memory available, and one node with at least 4 vCPUs and 16 GB *allocatable*
+    for ClickHouse, or its pod never starts;
+  - a storage class that creates volumes on demand and supports expansion (`kubectl get storageclass`). On EKS
+    that may need the `ebs-csi-driver` add-on;
+  - outbound access to `https://beacon.langchain.com` (licence check) and to your model providers.
+  See [Kubernetes prerequisites](https://docs.langchain.com/langsmith/kubernetes).
+- **Your computer:** `kubectl` and `helm` v3, connected to the cluster; `openssl`; Python with `cryptography`.
 
-Two modes come from the same code (AD-44):
-
-- **B1 connected, OFFICIAL-SENSITIVE**: egress only from the LLM Gateway, to customer-approved UK model endpoints.
-- **B2 disconnected enclave**: no egress at all; software carried in as signed Zarf packages; sovereign models on vLLM.
-
-## Repository layout
-
-```
-docs/            architecture, SDLC, ADRs, control catalogue, threat model and risk register, plan, runbooks
-agents/template/ template deep agent: auth, model classes, approvals, MCP allowlist, evaluations
-workbench/       Next.js workbench (chat, plan, approvals, background tasks) on LangChain's useStream
-mcp-servers/     example MCP server
-e2e/             browser end-to-end test of the whole user journey against a stub model
-infra/opentofu/  Nutanix AHV virtual machines for RKE2 nodes (OpenTofu)
-infra/rke2/      RKE2 server and agent configuration, audit policy, Cilium settings
-platform/        Argo CD applications, Helm values per component, B1/B2 overlays, raw manifests
-policies/        Kyverno policies with tests; Cilium network policies
-airgap/zarf/     Zarf packages for carry-in to the enclave
-model-intake/    model intake gate CLI (provenance, ML-BOM, evaluation thresholds, decision record)
-redteam/         garak, PyRIT and Inspect configurations for OWASP LLM and Agentic testing
-tests/           in-cluster tests: zero egress, unsigned image refused
-versions.yaml    every pinned version in one place
-```
-
-## Quick start
+## 2. Configure
 
 ```bash
-make validate            # everything CI runs, locally
-make -C model-intake test
+cp langsmith_config.example.yaml langsmith_config.yaml     # git ignores it; never commit your real config
+openssl rand -base64 32                                    # once for apiKeySalt, again for jwtSecret
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"   # Insights, then Chat
 ```
 
-Deployment order and commands are in [docs/runbooks/install-b1.md](docs/runbooks/install-b1.md) and
-[docs/runbooks/install-b2-airgap.md](docs/runbooks/install-b2-airgap.md).
+Replace **every** `<...>` value; the chart does not check that `jwtSecret` was changed, and the placeholder is
+public. Set `apiKeySalt` once and never change it.
 
-## Secrets
+## 3. Install
 
-This repository is public. It holds **no** secrets, licence keys, hostnames of real sites or customer data. Every
-secret is created in OpenBao at install time and reaches workloads through External Secrets. CI runs gitleaks on
-every pull request.
+```bash
+helm repo add langchain https://langchain-ai.github.io/helm
+helm search repo langchain/langsmith --versions            # LangChain recommends the latest version
+kubectl create namespace langsmith
+helm upgrade -i langsmith langchain/langsmith --values langsmith_config.yaml --version <version> \
+  -n langsmith --wait --debug
+kubectl get pods -n langsmith
+```
 
-## Secure development lifecycle
+LangSmith runs its own PostgreSQL, Redis, ClickHouse and blob storage inside the cluster. For production LangChain
+recommends external datastores (see the guide).
 
-The repository follows a NIST SSDF (SP 800-218 and 800-218A) secure lifecycle mapped to MOD Secure by Design and the
-gates PR, E1, E2 and P1. See [docs/sdlc.md](docs/sdlc.md).
+## 4. Sign in and test
 
-## Licence
+The frontend is a `LoadBalancer` service, which a cloud provider may give a **public** IP over plain HTTP. For a
+first test, reach it privately instead:
 
-Apache-2.0 for the code in this repository. Third-party components keep their own licences (table above).
+```bash
+kubectl port-forward svc/langsmith-frontend 8080:80 -n langsmith
+```
+
+Open <http://localhost:8080> and sign in with the admin email and password from your config. Then use LangSmith
+as documented: create an API key, send traces, run evaluations. Insights and Chat need model access configured
+first ([Insights and Chat](https://docs.langchain.com/langsmith/self-host-insights-chat)).
+
+To open it to others, put it behind an ingress with TLS ([ingress guide](https://docs.langchain.com/langsmith/self-host-ingress)),
+or restrict the load balancer with `frontend.service.loadBalancerSourceRanges`.
+
+## 5. Deploy LangGraph agents (Agent Server)
+
+Follow [Enable Agent Server hosting](https://docs.langchain.com/langsmith/enable-self-hosted-agent-server). In short:
+
+1. Install KEDA:
+   ```bash
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm upgrade --install keda kedacore/keda --namespace keda --create-namespace
+   ```
+2. Install an ingress controller (or Gateway API, or Istio) in the cluster, then uncomment the Agent Server block
+   in `langsmith_config.yaml`: `config.hostname`, `config.deployment.enabled`, `ingress.enabled` and
+   `frontend.service.type: ClusterIP`. The release refuses to install with Agent Server on and no ingress,
+   gateway or Istio gateway enabled. It also refuses `ingress.hostname` and `ingress.subdomain`, even empty
+   (moved to `config.hostname` and `config.basePath` in v12), which the ingress guide's example still shows:
+   leave them out. Agent Server expects TLS by default (`config.deployment.tlsEnabled: true`): give the ingress
+   a certificate as the [ingress guide](https://docs.langchain.com/langsmith/self-host-ingress) describes, or set
+   `tlsEnabled: false` for a test without TLS.
+3. Run the `helm upgrade` command from step 3 again.
+4. Build an agent with LangGraph (needs Docker and the LangGraph CLI) for the cluster's CPU, and push it:
+   ```bash
+   langgraph dev                                              # try it locally
+   langgraph build -t <registry>/<image>:<tag> --platform linux/amd64    # or linux/arm64 for Arm nodes
+   docker push <registry>/<image>:<tag>
+   ```
+   If the registry is private, give the cluster pull access as the guide describes (`operator.templates.deployment`).
+5. In LangSmith open **Agent Servers**, choose **+ Agent Server**, and fill in the image URL, Listener/Compute ID
+   and namespace ([deploy with the control plane](https://docs.langchain.com/langsmith/deploy-with-control-plane)).
+
+## Defaults to know
+
+- LangSmith sends operational telemetry (logs, metrics, traces) to LangChain unless `config.telemetry` turns it
+  off, and usage telemetry unless you add this to your config (`commonEnv` is a list of environment variables):
+  ```yaml
+  commonEnv:
+    - name: PHONE_HOME_USAGE_REPORTING_ENABLED
+      value: "false"
+  ```
+  The licence beacon itself cannot be turned off ([egress](https://docs.langchain.com/langsmith/self-host-egress)).
+- Single sign-on, external datastores, TLS and air-gapped installs are in LangChain's guide.

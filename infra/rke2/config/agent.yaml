@@ -1,8 +1,0 @@
-# /etc/rancher/rke2/config.yaml on worker nodes. The registration address (server:) and the pool label are written
-# per node to config.yaml.d/10-node.yaml by scripts/render-rke2-config.sh.
-token-file: /etc/rancher/rke2/token
-profile: cis
-protect-kernel-defaults: true
-selinux: true
-kubelet-arg:
-  - tls-min-version=VersionTLS12

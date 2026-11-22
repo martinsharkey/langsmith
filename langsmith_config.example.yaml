@@ -1,0 +1,34 @@
+# LangSmith configuration: the minimal example in LangChain's guide (https://docs.langchain.com/langsmith/kubernetes),
+# which LangSmith 0.18.1 renders (helm template, with and without Agent Server). Copy this file to
+# langsmith_config.yaml (git ignores it) and replace every <...> value. Set only the options your installation
+# needs; do not copy the chart's whole values.yaml.
+
+config:
+  langsmithLicenseKey: "<your licence key from LangChain>"
+  apiKeySalt: "<openssl rand -base64 32>"         # set once; never change it
+  authType: mixed
+  basicAuth:
+    enabled: true
+    initialOrgAdminEmail: "<admin email>"
+    # At least 12 characters with a lowercase letter, an uppercase letter and one of !#$%()+,-./:?@[\]^_{~}
+    initialOrgAdminPassword: "<admin password>"
+    jwtSecret: "<openssl rand -base64 32, a different value from apiKeySalt>"
+
+  # Agent Server (deploying LangGraph agents): see README.md, step 5. Uncomment with the ingress block below.
+  # hostname: "<langsmith.your-domain>"
+  # deployment:
+  #   enabled: true
+
+# ingress:
+#   enabled: true                 # needs an ingress controller in the cluster
+# frontend:
+#   service:
+#     type: ClusterIP
+
+insights:
+  enabled: true
+  encryptionKey: "<Fernet key: see README.md, step 2>"
+
+polly:                            # Chat
+  enabled: true
+  encryptionKey: "<a second Fernet key>"

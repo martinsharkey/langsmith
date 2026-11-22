@@ -1,6 +1,0 @@
-crds:
-  enabled: true
-replicaCount: 2
-prometheus:
-  servicemonitor:
-    enabled: false  # in platform/manifests/monitoring (wave 8): the CRD comes later
